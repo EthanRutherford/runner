@@ -34,11 +34,13 @@ class cMenu: public Menu{
 class projectMenu: public cMenu{
 	public:
 		void execute();
+		bool back() const {return Back;};
 		projectMenu(std::string file);
 		~projectMenu();
 	private:
 		void setup(std::string* stuff) const;
 		std::string* commands;
+		bool Back;
 };
 
 class startMenu: public cMenu{

@@ -101,6 +101,8 @@ void projectMenu::execute()
 		else
 			system(commands[cursor].c_str());
 	}
+	if (input.get() == 8)
+		Back = true;
 	cMenu::execute();
 }
 
@@ -184,6 +186,7 @@ projectMenu::projectMenu(std::string file): cMenu(file)
 		delete [] word;
 		ifile.close();
 		isUpdated = true;
+		Back = false;
 	}
 	else
 		commands = NULL;
