@@ -5,6 +5,7 @@ class Input{
 		int get() const;
 		void set();
 		void waitfor();
+		void wait() const;
 	private:
 		int	a, b;
 };
@@ -55,4 +56,3 @@ class startMenu: public cMenu{
 		void deleteProject();
 		std::string checkfor(std::string file) const;
 };
-

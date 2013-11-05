@@ -7,6 +7,8 @@
 //need to implement checks for extensions,
 //as well as spaces in file names.
 
+//also need to remove windows.h dependencies
+
 //Input
 
 int Input::get() const
@@ -39,6 +41,11 @@ void Input::waitfor()
 		b = _getch();
 	else
 		b = 0;
+}
+
+void Input::wait() const
+{
+	_getch();
 }
 
 //Menu
@@ -99,18 +106,23 @@ void projectMenu::execute()
 		if (cursor == size-1)
 			exit(0);
 		else
+		{
+			std::cout << "Compiling...\n";
 			system(commands[cursor].c_str());
+			std::cout << "Finished.\nPress any key to continue.\n";
+			input.wait();
+		}
 	}
 	if (input.get() == 8)
 		Back = true;
 	cMenu::execute();
 }
 
-void projectMenu::setup(std::string*stuff) const
+void projectMenu::setup(std::string* stuff) const
 {
 	std::string tmp = "";
-	for (int i = 0; i < commands[size-3].size() - 4; i++)
-		tmp += commands[size-3][i];
+	for (int i = 0; i < commands[size-2].size() - 4; i++)
+		tmp += commands[size-2][i];
 	for (int i = 1; i < size-3; i++)
 	{
 		std::string word = tmp + "\\" + stuff[i] + ".cpp";
@@ -145,7 +157,7 @@ void projectMenu::setup(std::string*stuff) const
 	}
 	mfile.close();
 	system("start notepad++.exe");
-	for (int i = 0; i < size-2; i++)
+	for (int i = 0; i < size-3; i++)
 	{
 		std::string line = tmp + "\\" + stuff[i] + ".cpp";
 		system(line.c_str());
@@ -179,9 +191,9 @@ projectMenu::projectMenu(std::string file): cMenu(file)
 			commands[i] += word[size-3] + "\\" + word[i] + ".o";
 		}
 		commands[size-3] = "g++ -o "+ word[size-3] + ".exe ";
-		for (int i = 0; i <= size-3; i++)
+		for (int i = 0; i < size-3; i++)
 			commands[size-3] += word[size-3] + "\\" + word[i] + ".o ";
-		commands[size-3] = word[size-3] + ".exe";
+		commands[size-2] = word[size-3] + ".exe";
 		setup(word);
 		delete [] word;
 		ifile.close();
@@ -300,7 +312,7 @@ void startMenu::addProject(std::string& project) const
 		{
 			SetFileAttributes(word.c_str(), FILE_ATTRIBUTE_HIDDEN);
 			project = "";
-			system("pause");
+			input.wait();
 			return;
 		}
 	std::ofstream ofile(word.c_str());
