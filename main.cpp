@@ -1,29 +1,18 @@
 #include <iostream>
+#include <windows.h>
 #include "menu.h"
 using namespace std;
+using namespace runner;
 
 int main()
 {
-	string file = "";
-	startMenu Smenu("projects.cfg");
+	system("title Runner version: 8.0");
+	Loader* menuLoader = Loader::get("projects.cfg");
 	while (true)
 	{
-		if (file == "")
-		{
-			cout << Smenu;
-			Smenu.getInput();
-			file = Smenu.execute();
-		}
-		else
-		{
-			projectMenu Pmenu(file);
-			while (!Pmenu.back())
-			{
-				cout << Pmenu;
-				Pmenu.getInput();
-				Pmenu.execute();
-			}
-			file = "";
-		}
+		menuLoader->load();
+		cout << *menuLoader->menu();
+		menuLoader->menu()->getInput();
+		menuLoader->menu()->execute();
 	}
 }
