@@ -59,10 +59,11 @@ namespace runner
 			~startMenu() {}
 		private:
 			std::string configfile;
-			std::string newProject() const;
+			void newProject();
 			void addProject(tag* child, int files) const;
+			//void editProject();
 			void deleteProject();
-			std::string checkfor(std::string file) const;
+			void checkfor(std::string file) const;
 	};
 
 	class Loader{

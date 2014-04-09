@@ -4,13 +4,9 @@
 #include <stdlib.h>
 #include <conio.h>
 using namespace runner;
-
 //need to implement checks for extensions,
 //as well as spaces in file names.
-
 //also need to remove windows.h dependencies
-
-//Input
 
 namespace runner
 {
@@ -28,7 +24,7 @@ namespace runner
 		return stream;
 	}
 }
-
+//Input
 int Input::get() const
 {
 	if (a == -1)
@@ -37,7 +33,6 @@ int Input::get() const
 		return -b;
 	return a;
 }
-
 void Input::set()
 {
 	if (kbhit())
@@ -51,7 +46,6 @@ void Input::set()
 	else
 		a = -1;
 }
-
 void Input::waitfor()
 {
 	a = _getch();
@@ -60,21 +54,18 @@ void Input::waitfor()
 	else
 		b = 0;
 }
-
 void Input::wait() const
 {
 	_getch();
 }
 
 //Menu
-
 void Menu::getInput()
 {
 	input.set();
 }
 
 //cMenu
-
 void cMenu::execute()
 {
 	isUpdated = true;
@@ -85,7 +76,6 @@ void cMenu::execute()
 	else if (input.get() == 0)
 		isUpdated = false;
 }
-
 cMenu::cMenu()
 {
 	changeto = "";
@@ -93,7 +83,6 @@ cMenu::cMenu()
 }
 
 //projectMenu
-
 void projectMenu::execute()
 {
 	if (input.get() == 13)
@@ -119,7 +108,6 @@ void projectMenu::execute()
 		changeto = "main";
 	cMenu::execute();
 }
-
 void projectMenu::setup(std::string folder) const
 {
 	system("start notepad++.exe");
@@ -131,7 +119,7 @@ void projectMenu::setup(std::string folder) const
 		ofile << "#include <iostream>\n";
 		for (int i = 0; i < hfiles.size(); i++)
 			ofile << "#include \"" << hfiles[i] << ".h\"\n";
-		ofile << "using namespace std;\n\nmain()\n{\n\t\n}";
+		ofile << "using namespace std;\n\nint main()\n{\n\t\n}";
 		ofile.close();
 	}
 	system(filename.c_str());
@@ -139,6 +127,7 @@ void projectMenu::setup(std::string folder) const
 	for (int i = 0; i < cppfiles.size(); i++)
 	{
 		filename = folder + "\\" + cppfiles[i] + ".cpp";
+		std::string filename2 = folder + "\\" + cppfiles[i] + ".h";
 		std::ifstream cppfile(filename.c_str());
 		if (!cppfile)
 		{
@@ -146,7 +135,17 @@ void projectMenu::setup(std::string folder) const
 			ofile << "#include \"" << cppfiles[i] << ".h\"\n";
 			ofile.close();
 		}
+		cppfile.close();
+		std::ifstream hfile(filename2.c_str());
+		if (!hfile)
+		{
+			std::ofstream ofile(filename2.c_str());
+			ofile << "";
+			ofile.close();
+		}
+		hfile.close();
 		system(filename.c_str());
+		system(filename2.c_str());
 	}
 	for (int i = 0; i < hfiles.size(); i++)
 	{
@@ -155,12 +154,12 @@ void projectMenu::setup(std::string folder) const
 		if (!hfile)
 		{
 			std::ofstream ofile(filename.c_str());
+			ofile << "";
 			ofile.close();
 		}
 		system(filename.c_str());
 	}
 }
-
 projectMenu::projectMenu(tag proj): cMenu()
 {
 	std::string name, mainname, list;
@@ -176,16 +175,15 @@ projectMenu::projectMenu(tag proj): cMenu()
 			mainname = child->get_content();
 			options.push_back("compile main");
 			commands.push_back("g++ -c " + name + "\\" + child->get_content() + ".cpp -o "
-				+ name + "\\" + child->get_content() + ".o");
+				+ name + "\\" + child->get_content() + ".o -std=c++11");
 			list += name + "\\" + child->get_content() + ".o ";
 		}
 		if (tagname == "cpp")
 		{
 			options.push_back("compile " + child->get_content());
 			cppfiles.push_back(child->get_content());
-			hfiles.push_back(child->get_content());
 			commands.push_back("g++ -c " + name + "\\" + child->get_content() + ".cpp -o "
-				+ name + "\\" + child->get_content() + ".o");
+				+ name + "\\" + child->get_content() + ".o -std=c++11");
 			list += name + "\\" + child->get_content() + ".o ";
 			multiple = true;
 		}
@@ -200,7 +198,9 @@ projectMenu::projectMenu(tag proj): cMenu()
 	}
 	else
 	{
+		options.pop_back();
 		options.push_back("compile");
+		commands.pop_back();
 		commands.push_back("g++ -o " + name + ".exe " + name + "\\main.cpp ");
 	}
 	options.push_back("run program");
@@ -212,21 +212,22 @@ projectMenu::projectMenu(tag proj): cMenu()
 }
 
 //startMenu
-
 void startMenu::execute()
 {
 	cMenu::execute();
 	if (input.get() == 13)
 	{
 		if (cursor == size-1)
-			changeto = newProject();
+			newProject();
 		else
 			changeto = options[cursor];
 	}
 	if (input.get() == -83 and cursor != size-1)
 		deleteProject();
+	//if (input.get() == 99 and cursor != size-1)
+		//editProject();
+	//add rename capability
 }
-
 startMenu::startMenu(std::string file): cMenu()
 {
 	configfile = file;
@@ -256,8 +257,7 @@ startMenu::startMenu(std::string file): cMenu()
 	}
 	ifile.close();
 }
-	
-std::string startMenu::newProject() const
+void startMenu::newProject()
 {
 	std::string name, tmp;
 	tag* file;
@@ -272,7 +272,8 @@ std::string startMenu::newProject() const
 	if (exists)
 	{
 		std::cout << "A project named \"" << name << "\" already exists.\n";
-		return "";
+		input.wait();
+		return;
 	}
 	std::string mkdir = "mkdir " + name;
 	system(mkdir.c_str());
@@ -287,7 +288,7 @@ std::string startMenu::newProject() const
 	manager.set_content(name);
 	manager.manage(file[1]);
 	manager.set_name("main");
-	manager.set_content(name);
+	manager.set_content("main");
 	for (int i = 0; i < pairs; i++) 
 	{
 		manager.manage(file[i+2]);
@@ -305,9 +306,8 @@ std::string startMenu::newProject() const
 		manager.set_content(tmp);
 	}
 	addProject(file, pairs+files+2);
-	return name;
+	changeto = name;
 }
-
 void startMenu::addProject(tag* child, int files) const
 {
 	SetFileAttributes(configfile.c_str(), FILE_ATTRIBUTE_NORMAL);
@@ -323,7 +323,54 @@ void startMenu::addProject(tag* child, int files) const
 	ofile.close();
 	SetFileAttributes(configfile.c_str(), FILE_ATTRIBUTE_HIDDEN);
 }
-
+/*void startMenu::editProject() //WIP
+{
+	SetFileAttributes(configfile.c_str(), FILE_ATTRIBUTE_NORMAL);
+	std::ifstream ifile(configfile.c_str());
+	std::vector<tag> tags;
+	if (ifile)
+	{
+		do {
+			tag curTag;
+			curTag.read(ifile);
+			if (curTag.get_name() == "project")
+				tags.push_back(curTag);
+		} while (ifile.good());
+	}
+	ifile.close();
+	tags[cursor].write(std::cout);
+	std::cout << "Type file name to add a file to the project.\n";
+	std::string inpt;
+	std::cin >> inpt;
+	int i = 0;
+	for (; inpt[i] != '.' and i < inpt.size(); i++);
+	if (i == inpt.size())
+	{
+		std::cout << "not yet implemented.\n";
+		Sleep(100);
+	}
+	else
+	{
+		std::string name = inpt.substr(0, i);
+		std::string ext = inpt.substr(i+1, 3);
+		if (ext == "h" or ext == "cpp")
+		{
+			tag* child = new tag;
+			tagmaker manager(child);
+			manager.set_name(ext);
+			manager.set_content(name);
+			manager.manage(tags[cursor]);
+			manager.add_child(child);
+			manager.prepare();
+		}
+	}
+	std::ofstream ofile(configfile.c_str());
+	for (int i = 0; i < tags.size(); i++)
+		tags[i].write(ofile);
+	ofile.close();
+	isUpdated = true;
+	SetFileAttributes(configfile.c_str(), FILE_ATTRIBUTE_HIDDEN);
+}*/
 void startMenu::deleteProject()
 {
 	std::cout << "Are you sure you want to delete? (y/n)";
@@ -364,8 +411,7 @@ void startMenu::deleteProject()
 		SetFileAttributes(configfile.c_str(), FILE_ATTRIBUTE_HIDDEN);
 	}
 }
-
-std::string startMenu::checkfor(std::string file) const
+void startMenu::checkfor(std::string file) const
 {
 	std::ifstream ifile(file.c_str());
 	if (!ifile)
@@ -375,20 +421,16 @@ std::string startMenu::checkfor(std::string file) const
 		ifile.close();
 		SetFileAttributes(file.c_str(), FILE_ATTRIBUTE_HIDDEN);
 	}
-	return file;
 }
 
 //Loader
-
 Loader* Loader::instance = NULL;
-
 Loader* Loader::get(std::string filename)
 {
 	if (instance == NULL)
 		instance = new Loader(filename);
 	return instance;
 }
-
 void Loader::load()
 {
 	if (curMenu == NULL)
@@ -430,13 +472,11 @@ void Loader::load()
 		curMenu = new projectMenu(curTag);
 	}
 }
-
 Loader::Loader(std::string filename)
 {
 	file = filename;
 	curMenu = NULL;
 }
-
 Loader::~Loader()
 {
 	if (curMenu != NULL)

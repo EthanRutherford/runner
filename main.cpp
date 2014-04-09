@@ -6,7 +6,7 @@ using namespace runner;
 
 int main()
 {
-	system("title Runner version: 8.0");
+	system("title Runner version: 8.1");
 	Loader* menuLoader = Loader::get("projects.cfg");
 	while (true)
 	{
