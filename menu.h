@@ -1,83 +1,226 @@
+//	!	HIGH PRIORITY
+//	!	TODO: use subwindows (or working alternative)
+//	+	MEDIUM PRIORITY
+//	+	TODO: add menu scrollbars
+//	-	LOW PRIORITY
+//	-	TODO: add radiobuttons
+//	-	TODO: add spinners
+//	?	UNDECIDED
+//	?	TODO: multiline textboxes
+//	?	TODO: hover-text
 #ifndef MENU_H
 #define MENU_H
-#include <iostream>
+
+#include <string>
+#include <gl/gl.h>
+#include <gl/freeglut.h>
+#include <gl/glext.h>
+#include <gl/glwindowpos.h>
 #include <vector>
-#include "tag.h"
+#include <map>
 
-namespace runner
-{
-	class Input{
-		public:
-			int get() const;
-			void set();
-			void waitfor();
-			void wait() const;
-		private:
-			int	a, b;
-	};
+typedef std::string String;
+class MenuManager;
 
-	class Menu{
-		public:
-			void getInput();
-			Menu(){cursor = 0;};
-			~Menu(){};
-		protected:
-			std::vector<std::string> options;
-			int size;
-			int cursor;
-			Input input;
-			bool isUpdated;
-		friend std::ostream& operator<<(std::ostream& stream, const Menu& menu);
-	};
-
-	class cMenu: public Menu{
-		friend class Loader;
-		public:
-			virtual void execute();
-			cMenu();
-			~cMenu(){};
-		protected:
-			std::string changeto;
-	};
-
-	class projectMenu: public cMenu{
-		public:
-			void execute();
-			projectMenu(tag proj);
-			~projectMenu() {}
-		private:
-			void setup(std::string folder) const;
-			std::vector<std::string> commands;
-			std::vector<std::string> hfiles;
-			std::vector<std::string> cppfiles;
-	};
-
-	class startMenu: public cMenu{
-		public:
-			void execute();
-			startMenu(std::string file);
-			~startMenu() {}
-		private:
-			std::string configfile;
-			void newProject();
-			void addProject(tag* child, int files) const;
-			//void editProject();
-			void deleteProject();
-			void checkfor(std::string file) const;
-	};
-
-	class Loader{
-		public:
-			static Loader* get(std::string filename);
-			void load();
-			cMenu* menu() {return curMenu;}
-			~Loader();
-		private:
-			static Loader* instance;
-			Loader(std::string filename);
-			Loader(const Loader&) {}
-			std::string file;
-			cMenu* curMenu;
-	};
+//function for drawing text to screen
+inline void drawText(String output, double x, double y){
+	glWindowPos2d(x, y);
+	glutBitmapString(GLUT_BITMAP_9_BY_15,(const unsigned char *)output.c_str());
 }
+
+//defines a rectangle
+struct area{
+	area() {}				//constructors for convenience
+	area(int X, int Y, int W, int H) : x(X), y(Y), w(W), h(H) {}
+	int x, y;				//lower-left position
+	int w, h;				//size (width, height)
+};
+
+//base class
+struct element{
+	enum _Type {
+		_button,
+		_tab,
+		_textbox,
+		_textarea,
+		_checkbox,
+		_Menu,
+		_MenuBar
+	};
+	virtual void draw() {}		//this is a virtual class
+	virtual _Type Type() {}		//get a type
+	String name;				//display name
+	String id;					//internal id
+	bool clicked;				//is being clicked
+	area a;						//rectangle definition
+};
+
+//data for a button's position and visual appearance
+struct button : public element{
+	_Type Type() {return _button;}
+	void draw();	//opengl immediate mode currently
+};
+
+//data for tabs
+struct tab : public element{
+	~tab();
+	_Type Type() {return _tab;}
+	void draw();					//draw the tab
+	bool open;						//is the tab open
+	int buttonsize;					//uniform button width
+	std::vector<button*> buttons;	//list of buttons in the menu
+};
+
+//data for a textbox
+struct textbox : public element{
+	_Type Type() {return _textbox;}
+	void draw();					//draw the box
+	String log(char key);			//log keystroke (returns true on enter key)
+	void special(int key);			//log special keystroke
+	String contents;				//contents
+	int cursor;						//position of cursor
+	int offset;						//offset from real cursor pos
+	String pseudoId;
+};
+
+//data for text
+struct textarea : public element{
+	_Type Type() {return _textarea;}
+	void draw();				//draw
+	std::vector<String> lines;	//multiline text
+};
+
+//data for a checkbox
+struct checkbox : public element{
+	_Type Type() {return _checkbox;}
+	void draw();	//draw checkbox
+	bool checked;	//is checked
+};
+
+//Arbitrarily sized menu
+class Menu : public element{
+	friend class MenuManager;
+	public:
+		Menu() {active = NULL;}
+		Menu(String n, String i, int x, int y, int w, int h)
+			{active = NULL; a.x = x; a.y = y; a.w = w; a.h = h; name = n; id = i;}
+		~Menu();
+		void draw();							//draw the menu, and buttons
+		_Type Type() {return _Menu;}			//get the type
+		String click(int x, int y);				//register a click, return button id
+		void release();							//mouse button released
+		//fails if invalid button placement/name
+		bool newButton(String n, String id, int x, int y);
+		//fails if textbox is invalid
+		bool newTextBox(String n, String id, int x, int y);
+		//fails if text is invalid
+		bool newText(String text, String id, int x, int y);
+		//fails if checkbox invalid
+		bool newCheckBox(String n, String id, bool check, int x, int y);
+		bool inside(int X, int Y);				//test if point is within menu area
+		void reshape(int width, int height);	//window reshape function
+	private:
+		std::vector<element*> elems;	//elements in menu
+		textbox* active;
+};
+
+//bar across top of window with options
+class MenuBar : public element{
+	friend class MenuManager;
+	public:
+		MenuBar() {nextX = 0;}
+		MenuBar(String n, String i) {name = n; id = i; nextX = 0;}
+		~MenuBar();
+		void draw();								//draw the bar
+		_Type Type() {return _Menu;}				//get the type
+		String click(int x, int y);					//resolve a click
+		void release();								//mb released
+		void closeTabs();							//close the open tab
+		bool newButton(String n, String id, String parent);	//add a button to a parent tab
+		bool newTab(String n, String id);			//add new tab (drop down menu)
+		bool inside(int x, int y);					//test if point is within menu area
+		void reshape(int width, int height);		//window reshape function
+	private:
+		int nextX;									//position of next tab
+		bool bttn;									//is true when a button is pressed
+		std::vector<tab*> tabs;						//list of tabs
+};
+
+//interface for all menus, to consolidate functions
+class MenuManager{
+	public:
+		MenuManager();
+		~MenuManager();
+		
+		//initialize glut stuff
+		void init();
+		
+		//the following are for callthroughs
+		void DisplayFunc(void (*func)());
+		void MouseFunc(void (*func)(int, int, int, int));
+		void KeyboardFunc(void (*func)(unsigned char, int, int));
+		void SpecialFunc(void (*func)(int, int, int));
+		void ReshapeFunc(void (*func)(int, int));
+		
+		//register the callback
+		void CallbackFunc(void (*func)(String));
+		
+		//draw all menus
+		void draw();
+		
+		//internal mouse functions
+		String mouse(int button, int state, int x, int y);
+		void point(int x, int y) {mx = x, my = height - y;}
+		
+		//functions for adding elements
+		bool newMenu(String name, String id, int x, int y, int w, int h);
+		
+		bool newButton(String n, String id, String parent, int x=0, int y=0);
+		
+		bool newTextBox(String n, String id, String parent, int x, int y);
+		
+		bool newCheckBox(String n, String id, String parent, bool check, int x, int y);
+		
+		bool newText(String text, String id, String parent, int x, int y);
+		
+		bool newTab(String n, String id) {topmenu.newTab(n, id);}
+		
+		//maintains menubar's shape and position during window resize
+		void reshape(int w, int h);
+		
+		//assign a keyboard shortcut to the button specified
+		bool assignShortcut(String id, char key, bool ignore = false);
+		
+		//register keystrokes
+		String keyPressed(char key);
+		
+		void keySpecial(int key);
+		
+		//functions for getting state
+		String requestText(String id);
+		
+		bool requestCheck(String id);
+		
+		//check if element exists
+		bool exists(String id);
+		
+		//remove a menu or element by id. fails if no matching id
+		bool deleteElement(String id);
+		
+		//add enterkey shortcut. fails if no match
+		bool linkTextBox(String tid, String bid, bool ignore = false);
+		
+	private:
+		//internal function for retrieving an element
+		element* getElem(String id);
+		//internal function for retrieving mouseovered element
+		element* getMouseOvered();
+		MenuBar topmenu;					//the menubar for the window
+		std::vector<Menu*> menus;			//list of all menus	
+		std::map<char,String> shortcuts;	//all keybindings
+		String result;						//stores identifier of clicked button
+		int height;							//height of window
+		int mx, my;							//mouse position
+};
+
 #endif

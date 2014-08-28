@@ -1,484 +1,925 @@
 #include "menu.h"
 #include <fstream>
-#include <windows.h>
-#include <stdlib.h>
-#include <conio.h>
-using namespace runner;
-//need to implement checks for extensions,
-//as well as spaces in file names.
-//also need to remove windows.h dependencies
+#include <algorithm>
+#include <time.h>
+#include <iostream>
 
-namespace runner
-{
-	std::ostream& operator<<(std::ostream& stream, const Menu& menu)
+//convenience functions
+String date = "";						//date grabbed
+String getTimeDate(){					//get time string
+	time_t rawtime;
+	struct tm * timeinfo;
+	time(&rawtime);
+	timeinfo = localtime(&rawtime);
+	String res = asctime(timeinfo);
+	res.pop_back();
+	return res;
+}
+bool logError(String message){			//error logging helper
+	String name = "errorlog.txt";
+	std::ofstream debug;
+	debug.open(name.c_str(), std::ofstream::app);
+	if (date == "")
 	{
-		if (menu.isUpdated)
-		{
-			system("CLS");
-			for (int i = 0; i < menu.size; i++)
-			{
-				stream << ((i == menu.cursor) ? ">":" ");
-				stream << menu.options[i] << std::endl;
-			}
-		}
-		return stream;
+		date = getTimeDate();
+		debug << date << "\n";
 	}
+	debug << message << "\n\n";
+	debug.close();
+	return false;
 }
-//Input
-int Input::get() const
-{
-	if (a == -1)
-		return 0;
-	if (b != 0)
-		return -b;
-	return a;
+bool contained(area a, area b){			//tests if area b is contained in area a
+	if (a.x > b.x or a.x+a.w < b.x+b.w) return false;
+	if (a.y < b.y or a.y-a.h > b.y+b.h) return false;
+	return true;
 }
-void Input::set()
-{
-	if (kbhit())
+bool overlap(area a, area b){			//tests if two areas overlap
+	if(a.x+a.w <= b.x or a.x >= b.x+b.w) return false;
+	if(a.y-a.h >= b.y or a.y <= b.y-b.h) return false;
+	return true;
+}
+bool overlap(area a, int x, int y){		//test if the point overlaps the button
+	if(x < a.x or x > a.x+a.w) return false;
+	if(y > a.y or y < a.y-a.h) return false;
+	return true;
+}
+bool overlap(textbox* t, int x, int y){	//test overlap, set cursor
+	if (overlap(t->a, x, y))
 	{
-		a = _getch();
-		if (a == 0 or a == 224)
-			b = _getch();
-		else
-			b = 0;
+		t->cursor = (x-t->a.x-2)/9 + t->offset;
+		if (t->cursor > t->contents.length())
+			t->cursor = t->contents.length();
+		return true;
 	}
-	else
-		a = -1;
+	return false;
 }
-void Input::waitfor()
-{
-	a = _getch();
-	if (a == 0 or a == 224)
-		b = _getch();
-	else
-		b = 0;
+void drawarea(area a){					//draw a rectangle
+	glVertex2d(a.x,		a.y		);
+	glVertex2d(a.x+a.w,	a.y		);
+	glVertex2d(a.x+a.w, a.y-a.h	);
+	glVertex2d(a.x,		a.y-a.h	);
 }
-void Input::wait() const
+
+//elements
+void button::draw()
 {
-	_getch();
+	glBegin(GL_QUADS);
+	if (clicked)	glColor3d(0.1, 0.1, 0.1);
+	else			glColor3d(0.2, 0.2, 0.2);
+	drawarea(a);
+	glEnd();
+	glBegin(GL_LINE_LOOP);
+	if (clicked)	glColor3d(0,0,0);
+	else			glColor3d(0.1, 0.1, 0.1);
+	drawarea(a);
+	glEnd();
+	if (clicked)	glColor3d(.8,.8,.8);
+	else			glColor3d(1, 1, 1);
+	drawText(name, a.x + 2, a.y - (a.h/2) - 5);
+}
+tab::~tab()
+{
+	for (int i = 0; i < buttons.size(); i++)
+		delete buttons[i];
+}
+void tab::draw()
+{
+	glColor3d(.6, .6, .8);
+	if (clicked or open)
+	{
+		if (clicked)	glColor3d(0.1, 0.1, 0.1);
+		else			glColor3d(0.2, 0.2, 0.2);
+		glBegin(GL_QUADS);
+		drawarea(a);
+		glEnd();
+		if (clicked)	glColor3d(.8,.8,.8);
+		else			glColor3d(1, 1, 1);
+	}
+	drawText(name, a.x+2, a.y - (a.h/2) - 5);
+	if (!open) return;
+	for (int i = 0; i < buttons.size(); i++)
+		buttons[i]->draw();
+}
+void textbox::draw()
+{
+	glBegin(GL_QUADS);
+	if (clicked)	glColor3d(0, 0, 0);
+	else			glColor3d(0.1, 0.1, 0.1);
+	drawarea(a);
+	glEnd();
+	glBegin(GL_LINE_LOOP);
+	if (clicked)	glColor3d(.4,.5,.6);
+	else			glColor3d(0.3, 0.4, 0.5);
+	drawarea(a);
+	glEnd();
+	//draw cursor
+	if (clicked)
+	{
+		glBegin(GL_LINE_STRIP);
+		int x = a.x + 2 + ((cursor-offset) * 9);
+		glVertex2d(x,	a.y-(a.h/2-6));
+		glVertex2d(x,	a.y-(a.h/2+6));
+		glEnd();
+	}
+	if (clicked)	glColor3d(1,1,1);
+	else			glColor3d(.8, .8, .8);
+	//determine portion of contents to display
+	int maxlength = (a.w - 4) / 9;
+	if (cursor-offset > maxlength)
+		offset++;
+	if (cursor-offset < 0)
+		offset = std::max(0, offset - 5);
+	int length = maxlength;
+	drawText(contents.substr(offset, length), a.x + 2, a.y - (a.h/2) - 5);
+}
+String textbox::log(char key)
+{
+	if (key == (char)8)
+	{
+		if (cursor > 0)
+			contents.erase(--cursor, 1);
+	}
+	else if (key == (char)127)
+	{
+		if (cursor < contents.length())
+			contents.erase(cursor, 1);
+	}
+	else if (key == (char)13)
+	{
+		clicked = false;
+		return pseudoId;
+	}
+	else if ((int)key > 30)
+		contents.insert(cursor++, 1, key);
+	return "";
+}
+void textbox::special(int key)
+{
+	if (key == GLUT_KEY_RIGHT and cursor < contents.length())
+		cursor++;
+	if (key == GLUT_KEY_LEFT and cursor > 0)
+		cursor--;
+	if (key == GLUT_KEY_UP)
+		cursor = offset = 0;
+}
+void textarea::draw()
+{
+	glColor3d(.8, .8, .8);
+	for (int i = 0; i < lines.size(); i++)
+		drawText(lines[i], a.x, a.y-15-(i*20));
+}
+void checkbox::draw()
+{
+	if (clicked)	glColor3d(.5, .5, .7);
+	else			glColor3d(.7, .7, .9);
+	glBegin(GL_QUADS);
+	drawarea(a);
+	glEnd();
+	glBegin(GL_LINE_LOOP);
+	glColor3d(0.0, 0.0, 0.1);
+	drawarea(a);
+	glEnd();
+	if (checked)
+		drawText("x", a.x, a.y - (a.h/2) - 4);
+	glColor3d(.8, .8, .8);
+	drawText(name, a.x + 12, a.y - (a.h/2) - 5);
 }
 
 //Menu
-void Menu::getInput()
+Menu::~Menu()
 {
-	input.set();
+	for (int i = 0; i < elems.size(); i++)
+		delete elems[i];
 }
-
-//cMenu
-void cMenu::execute()
+void Menu::draw()
 {
-	isUpdated = true;
-	if (input.get() == -72 and cursor > 0)
-		cursor--;
-	else if (input.get() == -80 and cursor < size - 1)
-		cursor++;
-	else if (input.get() == 0)
-		isUpdated = false;
+	glBegin(GL_QUADS);
+	glColor3d(0.17, 0.2, 0.25);
+	drawarea(a);
+	glEnd();
+	glBegin(GL_LINE_LOOP);
+	glColor3d(0, 0, 0.1);
+	drawarea(a);
+	glEnd();
+	glBegin(GL_LINE_STRIP);
+	glVertex2d(a.x,		a.y-20);
+	glVertex2d(a.x+a.w,	a.y-20);
+	glEnd();
+	glColor3d(.6, .6, .8);
+	drawText(name, a.x+2, a.y-15);
+	for (int i = 0; i < elems.size(); i++)
+		elems[i]->draw();
 }
-cMenu::cMenu()
+String Menu::click(int x, int y)
 {
-	changeto = "";
-	size = 0;
-}
-
-//projectMenu
-void projectMenu::execute()
-{
-	if (input.get() == 13)
-	{
-		if (cursor == size-1)
-			exit(0);
-		else if (cursor == size-2)
+	//close active textbox (will reactivate if same textbox is clicked)
+	if (active)
+		active->clicked = false;
+	active = NULL;
+	//see if the click hit an elem, and perform action
+	for (int i = 0; i < elems.size(); i++)
+		if (overlap(elems[i]->a, x, y))
 		{
-			std::cout << "Running...\n";
-			system(commands[cursor].c_str());
-			std::cout << "Finished.\nPress any key to continue.\n";
-			input.wait();
-		}
-		else
-		{
-			std::cout << "Compiling...\n";
-			system(commands[cursor].c_str());
-			std::cout << "Finished.\nPress any key to continue.\n";
-			input.wait();
-		}
-	}
-	if (input.get() == 8)
-		changeto = "main";
-	cMenu::execute();
-}
-void projectMenu::setup(std::string folder) const
-{
-	system("start notepad++.exe");
-	std::string filename = folder + "\\main.cpp";
-	std::ifstream mfile(filename.c_str());
-	if (!mfile)
-	{
-		std::ofstream ofile(filename.c_str());
-		ofile << "#include <iostream>\n";
-		for (int i = 0; i < hfiles.size(); i++)
-			ofile << "#include \"" << hfiles[i] << ".h\"\n";
-		ofile << "using namespace std;\n\nint main()\n{\n\t\n}";
-		ofile.close();
-	}
-	system(filename.c_str());
-	mfile.close();
-	for (int i = 0; i < cppfiles.size(); i++)
-	{
-		filename = folder + "\\" + cppfiles[i] + ".cpp";
-		std::string filename2 = folder + "\\" + cppfiles[i] + ".h";
-		std::ifstream cppfile(filename.c_str());
-		if (!cppfile)
-		{
-			std::ofstream ofile(filename.c_str());
-			ofile << "#include \"" << cppfiles[i] << ".h\"\n";
-			ofile.close();
-		}
-		cppfile.close();
-		std::ifstream hfile(filename2.c_str());
-		if (!hfile)
-		{
-			std::ofstream ofile(filename2.c_str());
-			ofile << "";
-			ofile.close();
-		}
-		hfile.close();
-		system(filename.c_str());
-		system(filename2.c_str());
-	}
-	for (int i = 0; i < hfiles.size(); i++)
-	{
-		filename = folder + "\\" + hfiles[i] + ".h";
-		std::ifstream hfile(filename.c_str());
-		if (!hfile)
-		{
-			std::ofstream ofile(filename.c_str());
-			ofile << "";
-			ofile.close();
-		}
-		system(filename.c_str());
-	}
-}
-projectMenu::projectMenu(tag proj): cMenu()
-{
-	std::string name, mainname, list;
-	const tag* child = proj.next_child();
-	bool multiple = false;
-	while (child != NULL)
-	{
-		std::string tagname = child->get_name();
-		if (tagname == "name")
-			name = child->get_content();
-		if (tagname == "main")
-		{
-			mainname = child->get_content();
-			options.push_back("compile main");
-			commands.push_back("g++ -c " + name + "\\" + child->get_content() + ".cpp -o "
-				+ name + "\\" + child->get_content() + ".o -std=c++11");
-			list += name + "\\" + child->get_content() + ".o ";
-		}
-		if (tagname == "cpp")
-		{
-			options.push_back("compile " + child->get_content());
-			cppfiles.push_back(child->get_content());
-			commands.push_back("g++ -c " + name + "\\" + child->get_content() + ".cpp -o "
-				+ name + "\\" + child->get_content() + ".o -std=c++11");
-			list += name + "\\" + child->get_content() + ".o ";
-			multiple = true;
-		}
-		if (tagname == "h")
-			hfiles.push_back(child->get_content());
-		child = proj.next_child();
-	}
-	if (multiple)
-	{
-		options.push_back("link executable");
-		commands.push_back("g++ -o " + name + ".exe " + list);
-	}
-	else
-	{
-		options.pop_back();
-		options.push_back("compile");
-		commands.pop_back();
-		commands.push_back("g++ -o " + name + ".exe " + name + "\\main.cpp ");
-	}
-	options.push_back("run program");
-	commands.push_back(name + ".exe");
-	options.push_back("exit");
-	size = options.size();
-	setup(name);
-	isUpdated = true;
-}
-
-//startMenu
-void startMenu::execute()
-{
-	cMenu::execute();
-	if (input.get() == 13)
-	{
-		if (cursor == size-1)
-			newProject();
-		else
-			changeto = options[cursor];
-	}
-	if (input.get() == -83 and cursor != size-1)
-		deleteProject();
-	//if (input.get() == 99 and cursor != size-1)
-		//editProject();
-	//add rename capability
-}
-startMenu::startMenu(std::string file): cMenu()
-{
-	configfile = file;
-	checkfor(file);
-	std::ifstream ifile(file.c_str());
-	if (ifile)
-	{
-		do
-		{
-			tag curTag;
-			curTag.read(ifile);
-			if (curTag.get_name() == "project")
+			elems[i]->clicked = true;
+			if (elems[i]->Type() == element::_button)
+				return id + ":" + elems[i]->id;
+			if (elems[i]->Type() == element::_textbox)
 			{
-				std::string option;
-				while (option == "")
+				active = (textbox*)elems[i];
+				overlap((textbox*)elems[i], x, y);
+			}
+		}
+	//return a miss
+	return "";
+}
+void Menu::release()
+{
+	for (int i = 0; i < elems.size(); i++)
+	{
+		if (elems[i]->Type() == element::_checkbox and elems[i]->clicked)
+		{
+			checkbox* c = (checkbox*)elems[i];
+			c->checked = !c->checked;
+		}
+		if (elems[i]->Type() != element::_textbox)
+			elems[i]->clicked = false;
+	}
+}
+bool Menu::newButton(String n, String id, int x, int y)
+{
+	y = a.y - y;
+	x = a.x + x;
+	//ensure real id
+	if (id == "")
+		return logError("Menu button needs real id.");
+	//auto-assign size
+	int w = std::max((int)n.length()*9+14, 100);
+	int h = 20;
+	//ensure button is inside menu
+	if (!contained(area(a.x, a.y-20, a.w, a.h-20), area(x, y, w, h)))
+		return logError("Button: " + n + " must be inside menu.");
+	//ensure buttons don't overlap/ ids don't conflict
+	for (int i = 0; i < elems.size(); i++)
+		if (overlap(elems[i]->a, area(x, y, w, h)) or id == elems[i]->id)
+			return logError("Id conflict between " + elems[i]->name + " and " + n + ".");
+	
+	//create and add the button
+	button* b = new button;
+	b->a.x = x;
+	b->a.y = y;
+	b->a.w = w;
+	b->a.h = h;
+	b->name = n;
+	b->id = id;
+	b->clicked = false;
+	elems.emplace_back(b);
+	return true;
+}
+bool Menu::newTextBox(String n, String id, int x, int y)
+{
+	y = a.y - y;
+	x = a.x + x;
+	//ensure box id is valid
+	if (id == "")
+		return logError("Invalid textbox id.");
+	//ensure box is inside menu
+	if (!contained(area(a.x, a.y-20, a.w, a.h-20), area(x, y, 200, 20)))
+		return logError("Textbox: " + n + " must be inside menu.");
+	//ensure box id does not conflict
+	for (int i = 0; i < elems.size(); i++)
+		if (id == elems[i]->id)
+			return logError("Duplicate textbox id: " + id + ".");
+		
+	//create and add textbox
+	textbox* t = new textbox;
+	t->a.x = x;
+	t->a.y = y;
+	t->a.w = 200;
+	t->a.h = 20;
+	t->clicked = false;
+	t->contents = n;
+	t->cursor = 0;
+	t->offset = 0;
+	t->name = n;
+	t->id = id;
+	elems.emplace_back(t);
+	return true;
+}
+bool Menu::newText(String text, String id, int x, int y)
+{
+	y = a.y - y;
+	x = a.x + x;
+	//ensure there is real text
+	if (text == "")
+		return logError("Textarea must have some text.");
+	//can't check size early due to unknown height/width
+	textarea* T = new textarea;
+	T->a.x = x;
+	T->a.y = y;
+	T->a.w = 0;
+	T->a.h = 0;
+	T->id = id;
+	int num = 0;
+	while (num < text.length())
+	{
+		String line = "";
+		int width = 4;
+		while (num < text.length() and text[num] != '\n')
+		{
+			line += text[num++];
+			width += 9;
+		}
+		T->a.w = std::max(width, T->a.w);
+		T->a.h += 20;
+		T->lines.emplace_back(line);
+		num++;
+	}
+	//make sure text is contained
+	if (!contained(area(a.x, a.y-20, a.w, a.h-20), T->a))
+	{
+		delete T;
+		return logError("TextArea with contents:\n'" + text + "'\nwas not contained n menu.");
+	}
+	elems.emplace_back(T);
+	return true;
+}
+bool Menu::newCheckBox(String n, String id, bool check, int x, int y)
+{
+	y = a.y - y;
+	x = a.x + x;
+	//ensure box id is valid
+	if (id == "")
+		return logError("Invalid checkbox id.");
+	//ensure box is inside menu
+	if (!contained(area(a.x, a.y-10, a.w, a.h-10), area(x, y, 200, 20)))
+		return logError("Textbox: " + n + " must be inside menu.");
+	//ensure box id does not conflict
+	for (int i = 0; i < elems.size(); i++)
+		if (id == elems[i]->id)
+			return logError("Duplicate checkbox id: " + id + ".");
+	checkbox* c = new checkbox;
+	c->a.x = x;
+	c->a.y = y;
+	c->a.h = 10;
+	c->a.w = 10;
+	c->checked = check;
+	c->clicked = false;
+	c->name = n;
+	c->id = id;
+	elems.emplace_back(c);
+	return true;
+}
+bool Menu::inside(int x, int y)
+{
+	return overlap (a, x, y);
+}
+void Menu::reshape(int width, int height)
+{
+	a.y -= height;
+	for (int i = 0; i < elems.size(); i++)
+		elems[i]->a.y -= height;
+}
+
+//MenuBar
+MenuBar::~MenuBar()
+{
+	for (int i = 0; i < tabs.size(); i++)
+		delete tabs[i];
+}
+void MenuBar::draw()
+{
+	glBegin(GL_QUADS);
+	glColor3d(0.17, 0.2, 0.25);
+	drawarea(a);
+	glEnd();
+	glBegin(GL_LINE_LOOP);
+	glColor3d(0, 0, 0.1);
+	drawarea(a);
+	glEnd();
+	for (int i = 0; i < tabs.size(); i++)
+		tabs[i]->draw();
+}
+String MenuBar::click(int x, int y)
+{
+	bool tabbed = false;
+	for (int i = 0; i < tabs.size(); i++)
+	{
+		//if the tab is open, check if a button was clicked
+		if (tabs[i]->open)
+			for (int j = 0; j < tabs[i]->buttons.size(); j++)
+				if (overlap(tabs[i]->buttons[j]->a, x, y))
 				{
-					const tag* child = curTag.next_child();
-					if (child->get_name() == "name")
-						option = child->get_attribute().length()==0 ? child->get_content() : child->get_attribute();
+					tabs[i]->buttons[j]->clicked = true;
+					bttn = true;
+					return id + ":" + tabs[i]->id + ":" + tabs[i]->buttons[j]->id;
 				}
-				options.push_back(option);
-			}
-		} while (ifile.good());
-		options.push_back("New Project");
-		size = options.size();
-		isUpdated = true;
+		//handle clicks on tabs
+		if (overlap(tabs[i]->a, x, y) and !tabbed)
+			tabbed = tabs[i]->clicked = true;
+		else	//close all tabs not clicked
+			tabs[i]->open = false;
 	}
-	ifile.close();
+	//return a miss
+	return "";
 }
-void startMenu::newProject()
+void MenuBar::release()
 {
-	std::string name, tmp;
-	tag* file;
-	int pairs, files;
-	tagmaker manager;
-	std::cout << "Name for the project?\n";
-	getline(std::cin, name);
-	bool exists = false;
-	for (int i = 0; i < options.size(); i++)
-		if (name == options[i])
-			exists = true;
-	if (exists)
+	for (int i = 0; i < tabs.size(); i++)
 	{
-		std::cout << "A project named \"" << name << "\" already exists.\n";
-		input.wait();
-		return;
+		//clear clicked flag for all buttons
+		for (int j = 0; j < tabs[i]->buttons.size(); j++)
+			tabs[i]->buttons[j]->clicked = false;
+		//if tab was clicked, open tab
+		if (tabs[i]->clicked)
+			tabs[i]->open = !tabs[i]->open;
+		//clear clicked flag for all tabs
+		tabs[i]->clicked = false;
+		//if a button was clicked, close the tab
+		if (bttn == true)
+			tabs[i]->open = false;
 	}
-	std::string mkdir = "mkdir " + name;
-	system(mkdir.c_str());
-	std::cout << "How many cpp/h pairs?\n";
-	std::cin >> pairs;
-	std::cout << "How many lone h files?\n";
-	std::cin >> files;
-	getline(std::cin, tmp);
-	file = new tag[pairs + files + 2];
-	manager.manage(file[0]);
-	manager.set_name("name");
-	manager.set_content(name);
-	manager.manage(file[1]);
-	manager.set_name("main");
-	manager.set_content("main");
-	for (int i = 0; i < pairs; i++) 
-	{
-		manager.manage(file[i+2]);
-		std::cout << "Name pair " << i+1 << ".\n";
-		getline(std::cin, tmp);
-		manager.set_name("cpp");
-		manager.set_content(tmp);
-	}
-	for (int i = 0; i < files; i++) 
-	{
-		manager.manage(file[i + pairs + 2]);
-		std::cout << "Name header " << i+1 << ".\n";
-		getline(std::cin, tmp);
-		manager.set_name("h");
-		manager.set_content(tmp);
-	}
-	addProject(file, pairs+files+2);
-	changeto = name;
+	//clear button flag
+	bttn = false;
 }
-void startMenu::addProject(tag* child, int files) const
+void MenuBar::closeTabs()
 {
-	SetFileAttributes(configfile.c_str(), FILE_ATTRIBUTE_NORMAL);
-	std::ofstream ofile(configfile.c_str(), std::ofstream::app);
-	tag* newproject = new tag;
-	tagmaker manager(newproject);
-	manager.set_name("project");
-	for (int i = 0; i < files; i++)
-		manager.add_child(child[i]);
-	manager.prepare();
-	newproject->write(ofile);
-	delete newproject;
-	ofile.close();
-	SetFileAttributes(configfile.c_str(), FILE_ATTRIBUTE_HIDDEN);
+	for (int i = 0; i < tabs.size(); i++)
+		tabs[i]->open = false;
 }
-/*void startMenu::editProject() //WIP
+bool MenuBar::newButton(String n, String id, String parent)
 {
-	SetFileAttributes(configfile.c_str(), FILE_ATTRIBUTE_NORMAL);
-	std::ifstream ifile(configfile.c_str());
-	std::vector<tag> tags;
-	if (ifile)
+	//ensure real id
+	if (id == "")
+		return logError("Menubar button must have real id.");
+	//ensure parent exists and find parent
+	int tab = -1;
+	for (int i = 0; i < tabs.size(); i++)
+		if (tabs[i]->id == parent)
+			tab = i;
+	if (tab == -1)
+		return logError("For button: " + id + ", parent tab: " + parent + " not found.");
+	//ensure button ids don't conflict
+	for (int i = 0; i < tabs[tab]->buttons.size(); i++)
+		if (id == tabs[tab]->buttons[i]->id)
+			return logError("Duplicate button id: " + id + ".");
+	
+	//if name is too big, make the buttons wider
+	if (n.length()*9+14 > tabs[tab]->buttonsize)
 	{
-		do {
-			tag curTag;
-			curTag.read(ifile);
-			if (curTag.get_name() == "project")
-				tags.push_back(curTag);
-		} while (ifile.good());
+		//add a little extra room at the end
+		tabs[tab]->buttonsize = n.length()*9+14;
+		for (int i = 0; i < tabs[tab]->buttons.size(); i++)
+			tabs[tab]->buttons[i]->a.w = tabs[tab]->buttonsize;
 	}
-	ifile.close();
-	tags[cursor].write(std::cout);
-	std::cout << "Type file name to add a file to the project.\n";
-	std::string inpt;
-	std::cin >> inpt;
-	int i = 0;
-	for (; inpt[i] != '.' and i < inpt.size(); i++);
-	if (i == inpt.size())
+	
+	//create and add the button
+	button* b = new button;
+	b->a.x = tabs[tab]->a.x;
+	b->a.y = tabs[tab]->buttons.size() > 0 
+		? tabs[tab]->buttons.back()->a.y-20 : tabs[tab]->a.y-20;
+	b->a.w = tabs[tab]->buttonsize;
+	b->a.h = 20;
+	b->name = n;
+	b->id = id;
+	b->clicked = false;
+	tabs[tab]->buttons.emplace_back(b);
+	return true;
+}
+bool MenuBar::newTab(String n, String id)
+{
+	//ensure real id
+	if (id == "")
+		return logError("Tab must have real id.");
+	//ensure ids don't conflict
+	for (int i = 0; i < tabs.size(); i++)
+		if (id == tabs[i]->id)
+			return logError("Duplicate tab id: " + id + ".");
+		
+	//create and add tab
+	tab* t = new tab;
+	t->a.x = nextX;
+	t->a.y = a.y;
+	t->a.w = n.length()*9+14;
+	nextX += t->a.w;
+	t->a.h = 20;
+	t->buttonsize = 100;
+	t->name = n;
+	t->id = id;
+	t->clicked = false;
+	t->open = false;
+	tabs.emplace_back(t);
+	return true;
+}
+bool MenuBar::inside(int x, int y)
+{
+	for (int i = 0; i < tabs.size(); i++)
 	{
-		std::cout << "not yet implemented.\n";
-		Sleep(100);
-	}
-	else
-	{
-		std::string name = inpt.substr(0, i);
-		std::string ext = inpt.substr(i+1, 3);
-		if (ext == "h" or ext == "cpp")
+		//if tab is open, check if inside tab area
+		if (tabs[i]->open and tabs[i]->buttons.size() > 0)
 		{
-			tag* child = new tag;
-			tagmaker manager(child);
-			manager.set_name(ext);
-			manager.set_content(name);
-			manager.manage(tags[cursor]);
-			manager.add_child(child);
-			manager.prepare();
+			//if below the bottom of the tab, its not inside
+			area* A = &tabs[i]->buttons.back()->a;
+			if (y < A->y - A->h)
+				return false;
+			//if above bottom of tab and within x bounds, is inside
+			if (x > tabs[i]->a.x and x < tabs[i]->a.x+tabs[i]->buttonsize)
+				return true;
 		}
 	}
-	std::ofstream ofile(configfile.c_str());
-	for (int i = 0; i < tags.size(); i++)
-		tags[i].write(ofile);
-	ofile.close();
-	isUpdated = true;
-	SetFileAttributes(configfile.c_str(), FILE_ATTRIBUTE_HIDDEN);
-}*/
-void startMenu::deleteProject()
-{
-	std::cout << "Are you sure you want to delete? (y/n)";
-	input.waitfor();
-	int in = input.get();
-	if (in == 121)
-	{
-		SetFileAttributes(configfile.c_str(), FILE_ATTRIBUTE_NORMAL);
-		std::ifstream ifile(configfile.c_str());
-		std::vector<tag> tags;
-		if (ifile)
-		{
-			do {
-				tag curTag;
-				curTag.read(ifile);
-				if (curTag.get_name() == "project")
-					tags.push_back(curTag);
-			} while (ifile.good());
-		}
-		ifile.close();
-		std::ofstream ofile(configfile.c_str());
-		for (int i = 0; i < tags.size(); i++)
-		{
-			if (i == cursor)
-			{
-				std:: string rem = "RD /S /Q " + options[i];
-				system(rem.c_str());
-				for (int j = 0; j < size; j++)
-					if (j == cursor)
-						options.erase(options.begin()+j);
-			}
-			else
-				tags[i].write(ofile);
-		}
-		ofile.close();
-		size--; 
-		isUpdated = true;
-		SetFileAttributes(configfile.c_str(), FILE_ATTRIBUTE_HIDDEN);
-	}
+	//if below menubar min, false; if above min, true
+	if(y < a.y-a.h) return false;
+	return true;
 }
-void startMenu::checkfor(std::string file) const
+void MenuBar::reshape(int w, int h)
 {
-	std::ifstream ifile(file.c_str());
-	if (!ifile)
+	//set position and width relative to window
+	a.x = 0; a.y = h; a.w = w; a.h = 20;
+	int curX = 0;
+	for (int i = 0; i < tabs.size(); i++)
 	{
-		std::ofstream ofile(file.c_str());
-		ofile.close();
-		ifile.close();
-		SetFileAttributes(file.c_str(), FILE_ATTRIBUTE_HIDDEN);
+		//reposition tabs
+		tabs[i]->a.x = curX;
+		tabs[i]->a.y = a.y;
+		int curY = a.y-20;
+		for (int j = 0; j < tabs[i]->buttons.size(); j++)
+		{
+			//reposition buttons in tabs
+			tabs[i]->buttons[j]->a.x = curX;
+			tabs[i]->buttons[j]->a.y = curY;
+			curY -= 20;
+		}
+		curX += tabs[i]->a.w;
 	}
+	//ensure correct position for future tabs
+	nextX = curX;
 }
 
-//Loader
-Loader* Loader::instance = NULL;
-Loader* Loader::get(std::string filename)
+//MenuManager glut callbacks and MenuManager callthroughs
+MenuManager* instance;
+void (*cllbck)(String);
+void (*dsply)();
+void (*ms)(int, int, int, int);
+void (*kybrd)(unsigned char, int, int);
+void (*spcl)(int, int, int);
+void (*rshp)(int, int);
+void _Display(){
+	if (dsply) (*dsply)();
+	instance->draw();
+	glFlush();
+	glutPostRedisplay();
+}
+void _Mouse(int button, int state, int x, int y){
+	String R = instance->mouse(button, state, x, y);
+	if (cllbck and R != "") (*cllbck)(R);
+	if (ms) (*ms)(button, state, x, y);
+}
+void _PassiveMouse(int x, int y){
+	instance->point(x, y);
+}
+void _Keyboard(unsigned char key, int x, int y){
+	String R = instance->keyPressed(key);
+	if (cllbck and R != "") (*cllbck)(R);
+	if (kybrd) (*kybrd)(key, x, y);
+}
+void _Special(int key, int x, int y){
+	instance->keySpecial(key);
+	if (spcl) (*spcl)(key, x, y);
+}
+void _Reshape(int width, int height){
+	instance->reshape(width, height);
+	if (rshp) (*rshp)(width, height);
+}
+void MenuManager::DisplayFunc(void (*func)()){
+	dsply = func;
+}
+void MenuManager::MouseFunc(void (*func)(int, int, int, int)){
+	ms = func;
+}
+void MenuManager::KeyboardFunc(void (*func)(unsigned char, int, int)){
+	kybrd = func;
+}
+void MenuManager::SpecialFunc(void (*func)(int, int, int)){
+	spcl = func;
+}
+void MenuManager::ReshapeFunc(void (*func)(int, int)){
+	rshp = func;
+}
+
+//MenuManager functions
+MenuManager::MenuManager() : topmenu("", "menubar"), height(-1)
 {
 	if (instance == NULL)
-		instance = new Loader(filename);
-	return instance;
+		instance = this;
+	else
+	{
+		logError("Attempt to instantiate second instance of MenuManager.");
+		exit(1);
+	}
 }
-void Loader::load()
+MenuManager::~MenuManager()
 {
-	if (curMenu == NULL)
+	for (int i = 0; i < menus.size(); i++)
+		delete menus[i];
+}
+void MenuManager::init()
+{
+	glutDisplayFunc(_Display);
+	glutMouseFunc(_Mouse);
+	glutPassiveMotionFunc(_PassiveMouse);
+	glutKeyboardFunc(_Keyboard);
+	glutSpecialFunc(_Special);
+	glutReshapeFunc(_Reshape);
+}
+void MenuManager::CallbackFunc(void (*func)(String))
+{
+	cllbck = func;
+}
+void MenuManager::draw()
+{
+	//clear the transformation so menus are in screen coords
+	glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+	for (int i = 0; i < menus.size(); i++)
+		menus[i]->draw();
+	//draw menubar last, to ensure it always being on top
+	topmenu.draw();	
+}
+String MenuManager::mouse(int button, int state, int x, int y)
+{
+	y = height - y;
+	if (button == 0 and state == 0)
 	{
-		curMenu = new startMenu(file);
-	}
-	else if (curMenu->changeto == "main")
-	{
-		delete curMenu;
-		curMenu = new startMenu(file);
-	}
-	else if (curMenu->changeto != "")
-	{
-		std::ifstream ifile(file.c_str());
-		tag curTag;
-		if (ifile)
+		//test menubar first, in case tab overlaps a menu
+		if (topmenu.inside(x, y))
 		{
-			bool found = false;
-			while (!found)
+			result = topmenu.click(x, y);
+			return "";
+		}
+		else
+			topmenu.closeTabs();
+		//test all menus
+		for (int i = 0; i < menus.size(); i++)
+		{
+			if (menus[i]->inside(x, y))
 			{
-				curTag.clear();
-				curTag.read(ifile);
-				if (curTag.get_name() == "project")
-				{
-					const tag* child = curTag.next_child();
-					while (!found and child != NULL)
-					{
-						if (child->get_name() == "name" and child->get_content() == curMenu->changeto)
-							found = true;
-						child = curTag.next_child();
-					}
-				}
+				result = menus[i]->click(x, y);
+				return "";
 			}
 		}
-		tagmaker manager(curTag);
-		manager.prepare();
-		ifile.close();
-		delete curMenu;
-		curMenu = new projectMenu(curTag);
+		//store a miss
+		result = "";
 	}
+	if (button == 0 and state == 1)
+	{
+		//perform mb release logic on all menus
+		for (int i = 0; i < menus.size(); i++)
+			menus[i]->release();
+		topmenu.release();
+		//register the clicked event on release
+		return result;
+	}
+	return "";
 }
-Loader::Loader(std::string filename)
+bool MenuManager::newMenu(String name, String id, int x, int y, int w, int h)
 {
-	file = filename;
-	curMenu = NULL;
+	if (height == -1)
+		height = glutGet(GLUT_WINDOW_HEIGHT);
+	y = height - y;
+	//ensure real id
+	if (id == "")
+		return logError("Menu must have real id.");
+	//ensure id does not conflict
+	if (exists(id))
+		return logError("Menu id conflict: " + id + ".");
+	
+	//create and add menu
+	Menu* m = new Menu(name, id, x, y, w, h);
+	menus.emplace_back(m);
+	return true;
 }
-Loader::~Loader()
+bool MenuManager::newButton(String n, String id, String parent, int x, int y)
 {
-	if (curMenu != NULL)
-		delete curMenu;
+	//get parent and add button
+	element* p = getElem(parent);
+	if (p == NULL)
+		p = getElem("menubar:" + parent);
+	if (p == NULL)
+		return logError("When creating button '" + n + "': Parent '" + parent 
+		+ "' does not exist");
+	if (p->Type() == element::_tab)
+		return topmenu.newButton(n, id, parent);
+	else if (p->Type() == element::_Menu)
+		return ((Menu*)p)->newButton(n, id, x, y);
+	//if parent isn't menu or tab
+	return logError("When creating button '" + n + "': Parent '" + parent 
+		+ "' is not valid.");
 }
+bool MenuManager::newTextBox(String n, String id, String parent, int x, int y)
+{
+	//search the menu names until match, then add box
+	for (int i = 0; i < menus.size(); i++)
+		if (menus[i]->id == parent)
+			return menus[i]->newTextBox(n, id, x, y);
+	//if parent does not exist
+	return logError("Parent \"" + parent + "\" does not exist.");
+}
+bool MenuManager::newCheckBox(String n, String id, String parent, bool check, int x, int y)
+{
+	//search the menu names until match, then add box
+	for (int i = 0; i < menus.size(); i++)
+		if (menus[i]->id == parent)
+			return menus[i]->newCheckBox(n, id, check, x, y);
+	//if parent does not exist
+	return logError("Parent \"" + parent + "\" does not exist.");
+}
+bool MenuManager::newText(String text, String id, String parent, int x, int y)
+{
+	//search the menu names until match, then add text
+	for (int i = 0; i < menus.size(); i++)
+		if (menus[i]->id == parent)
+			return menus[i]->newText(text, id, x, y);
+	//if parent does not exist
+	return logError("Parent \"" + parent + "\" does not exist.");
+}
+void MenuManager::reshape(int w, int h) 
+{
+	topmenu.reshape(w, h);
+	int diff = (height == -1) ? 0 : height - h;
+	for (int i = 0; i < menus.size(); i++)
+		menus[i]->reshape(w, diff);
+	height = h;
+}
+bool MenuManager::assignShortcut(String id, char key, bool ignore)
+{
+	if (ignore or exists(id))
+	{
+		shortcuts[key] = id;
+		return true;
+	}
+	return logError("failure to bind " + id);
+}
+String MenuManager::keyPressed(char key)
+{
+	//is a textbox active?
+	textbox* T = NULL;
+	for (int i = 0; i < menus.size(); i++)
+		if (menus[i]->active)
+			T = menus[i]->active;
+	//log keystroke in textbox
+	if (T) return T->log(key);
+	//is shortcut? return if so
+	return shortcuts[key];
+}
+void MenuManager::keySpecial(int key)
+{
+	//is a textbox active?
+	textbox* T = NULL;
+	for (int i = 0; i < menus.size(); i++)
+		if (menus[i]->active)
+			T = menus[i]->active;
+	//log keystroke in textbox
+	if (T) T->special(key);
+}
+String MenuManager::requestText(String id)
+{
+	element* e = getElem(id);
+	if (e != NULL and e->Type() == element::_textbox)
+		return ((textbox*)e)->contents;
+	logError("element '" + id + "' is not valid.");
+	return "";
+}
+bool MenuManager::requestCheck(String id)
+{
+	element* e = getElem(id);
+	if (e != NULL and e->Type() == element::_checkbox)
+		return ((checkbox*)e)->checked;
+	return logError("element '" + id + "' is not valid.");
+}
+bool MenuManager::exists(String id)
+{
+	if (getElem(id) == NULL)
+		return false;
+	return true;
+}
+bool MenuManager::deleteElement(String id)
+{
+	//early out for blank id
+	if (id == "")
+		return logError("No id given.");
+	String part[3];
+	for (int i = 0; i < 3; i++)
+	{
+		part[i] = id.substr(0, id.find(':'));
+		if (id.find(':') == std::string::npos) break;
+		id = id.substr(id.find(':')+1);
+	}
+	if (part[0] == "menubar")
+	{
+		if (part[1] == "")
+			return logError("Deleting topmenu not allowed.");
+		for (int i = 0; i < topmenu.tabs.size(); i++)
+		{
+			if (part[1] == topmenu.tabs[i]->id)
+			{
+				if (part[2] == "")
+				{
+					delete topmenu.tabs[i];
+					topmenu.tabs.erase(topmenu.tabs.begin()+i);
+					return true;
+				}
+				for (int j = 0; j < topmenu.tabs[i]->buttons.size(); j++)
+				{
+					if (part[2] == topmenu.tabs[i]->buttons[j]->id)
+					{
+						delete topmenu.tabs[i]->buttons[j];
+						topmenu.tabs[i]->buttons.erase(
+							topmenu.tabs[i]->buttons.begin()+j);
+						return true;
+					}
+				}
+				return logError("Invalid button name when deleting " + id + ".");
+			}
+		}
+		return logError("Invalid tab name when deleting " + id + ".");
+	}
+	for (int i = 0; i < menus.size(); i++)
+	{
+		if (part[0] == menus[i]->id)
+		{
+			if (part[1] == "")
+			{
+				delete menus[i];
+				menus.erase(menus.begin()+i);
+				return true;
+			}
+			for (int j = 0; j < menus[i]->elems.size(); j++)
+			{
+				if (part[1] == menus[i]->elems[j]->id)
+				{
+					delete menus[i]->elems[j];
+					menus[i]->elems.erase(menus[i]->elems.begin()+j);
+					return true;
+				}
+			}
+			return logError("Menu element not found when deleting " + id + ".");
+		}
+	}
+	return logError("Menu not found when deleting " + id + ".");
+}
+bool MenuManager::linkTextBox(String tid, String bid, bool ignore)
+{
+	element* box = getElem(tid);
+	if (box == NULL or box->Type() != element::_textbox)
+		return logError("Element '" + tid + "' is not a textbox.");
+	if (ignore or (exists(bid) and getElem(bid)->Type() == element::_button))
+	{
+		((textbox*)box)->pseudoId = bid;
+		return true;
+	}
+	return logError("Element '" + bid + "' not valid.");
+}
+element* MenuManager::getElem(String id)
+{
+	String part[3];
+	for (int i = 0; i < 3; i++)
+	{
+		part[i] = id.substr(0, id.find(':'));
+		if (id.find(':') == std::string::npos) break;
+		id = id.substr(id.find(':')+1);
+	}
+	if (part[0] == "menubar")
+	{
+		if (part[1] == "")
+			return &topmenu;
+		for (int i = 0; i < topmenu.tabs.size(); i++)
+		{
+			if (part[1] == topmenu.tabs[i]->id)
+			{
+				if (part[2] == "")
+					return topmenu.tabs[i];
+				for (int j = 0; j < topmenu.tabs[i]->buttons.size(); j++)
+					if (part[2] == topmenu.tabs[i]->buttons[j]->id)
+						return topmenu.tabs[i]->buttons[j];
+				logError(part[2]);
+				return NULL;
+			}
+		}
+		logError(part[1]);
+		logError(part[2]);
+		return NULL;
+	}
+	for (int i = 0; i < menus.size(); i++)
+	{
+		if (part[0] == menus[i]->id)
+		{
+			if (part[1] == "")
+				return menus[i];
+			for (int j = 0; j < menus[i]->elems.size(); j++)
+				if (part[1] == menus[i]->elems[j]->id)
+					return menus[i]->elems[j];
+			return NULL;
+		}
+	}
+	return NULL;
+}
+
