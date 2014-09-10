@@ -57,7 +57,7 @@ String _system(String command, bool wait = true)
 				printed = 0;
 				lines++;
 			}
-			if (lines > 19)
+			if (lines > 40)
 				return ret + "...";
 			if (printed > 78)
 			{
@@ -66,15 +66,19 @@ String _system(String command, bool wait = true)
 					if (ret[ret.length()-j] == ' ')
 					{
 						ret[ret.length()-j] = '\n';
+						printed = j;
 						break;
 					}
 					if (j + 1 == printed)
+					{
 						ret += '\n';
+						printed = 0;
+						break;
+					}
 				}
-				printed = 0;
 				lines++;
 			}
-			if (lines > 19)
+			if (lines > 40)
 				return ret + "...";
 		}
 	}

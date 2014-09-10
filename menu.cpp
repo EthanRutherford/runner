@@ -30,7 +30,7 @@ bool logError(String message){			//error logging helper
 }
 bool contained(area a, area b){			//tests if area b is contained in area a
 	if (a.x > b.x or a.x+a.w < b.x+b.w) return false;
-	if (a.y < b.y or a.y-a.h > b.y+b.h) return false;
+	if (a.y < b.y or a.y-a.h > b.y-b.h) return false;
 	return true;
 }
 bool overlap(area a, area b){			//tests if two areas overlap
@@ -61,28 +61,30 @@ void drawarea(area a){					//draw a rectangle
 }
 
 //elements
-void button::draw()
+void button::draw(int yoff)
 {
+	area a2 = a;
+	a2.y += yoff;
 	glBegin(GL_QUADS);
 	if (clicked)	glColor3d(0.1, 0.1, 0.1);
 	else			glColor3d(0.2, 0.2, 0.2);
-	drawarea(a);
+	drawarea(a2);
 	glEnd();
 	glBegin(GL_LINE_LOOP);
 	if (clicked)	glColor3d(0,0,0);
 	else			glColor3d(0.1, 0.1, 0.1);
-	drawarea(a);
+	drawarea(a2);
 	glEnd();
 	if (clicked)	glColor3d(.8,.8,.8);
 	else			glColor3d(1, 1, 1);
-	drawText(name, a.x + 2, a.y - (a.h/2) - 5);
+	drawText(name, a2.x + 2, a2.y - (a2.h/2) - 5);
 }
 tab::~tab()
 {
 	for (int i = 0; i < buttons.size(); i++)
 		delete buttons[i];
 }
-void tab::draw()
+void tab::draw(int yoff)
 {
 	glColor3d(.6, .6, .8);
 	if (clicked or open)
@@ -100,37 +102,39 @@ void tab::draw()
 	for (int i = 0; i < buttons.size(); i++)
 		buttons[i]->draw();
 }
-void textbox::draw()
+void textbox::draw(int yoff)
 {
+	area a2 = a;
+	a2.y += yoff;
 	glBegin(GL_QUADS);
 	if (clicked)	glColor3d(0, 0, 0);
 	else			glColor3d(0.1, 0.1, 0.1);
-	drawarea(a);
+	drawarea(a2);
 	glEnd();
 	glBegin(GL_LINE_LOOP);
 	if (clicked)	glColor3d(.4,.5,.6);
 	else			glColor3d(0.3, 0.4, 0.5);
-	drawarea(a);
+	drawarea(a2);
 	glEnd();
 	//draw cursor
 	if (clicked)
 	{
 		glBegin(GL_LINE_STRIP);
-		int x = a.x + 2 + ((cursor-offset) * 9);
-		glVertex2d(x,	a.y-(a.h/2-6));
-		glVertex2d(x,	a.y-(a.h/2+6));
+		int x = a2.x + 2 + ((cursor-offset) * 9);
+		glVertex2d(x,	a2.y-(a2.h/2-6));
+		glVertex2d(x,	a2.y-(a2.h/2+6));
 		glEnd();
 	}
 	if (clicked)	glColor3d(1,1,1);
 	else			glColor3d(.8, .8, .8);
 	//determine portion of contents to display
-	int maxlength = (a.w - 4) / 9;
+	int maxlength = (a2.w - 4) / 9;
 	if (cursor-offset > maxlength)
 		offset++;
 	if (cursor-offset < 0)
 		offset = std::max(0, offset - 5);
 	int length = maxlength;
-	drawText(contents.substr(offset, length), a.x + 2, a.y - (a.h/2) - 5);
+	drawText(contents.substr(offset, length), a2.x + 2, a2.y - (a2.h/2) - 5);
 }
 String textbox::log(char key)
 {
@@ -162,16 +166,46 @@ void textbox::special(int key)
 	if (key == GLUT_KEY_UP)
 		cursor = offset = 0;
 }
-void textarea::draw()
+void textarea::draw(int yoff)
 {
+	area a2 = a;
+	a2.y += yoff;
 	glColor3d(.8, .8, .8);
-	for (int i = 0; i < lines.size(); i++)
-		drawText(lines[i], a.x, a.y-15-(i*20));
+	for (int i = start; i < end; i++)
+		drawText(lines[i], a2.x, a2.y-15-(i*20));
 }
-void checkbox::draw()
+void textarea::prepare(int y, int h, int yoff)
 {
+	start = 0; 
+	end = lines.size();
+	int diff1 = (a.y + yoff) - y;
+	if (diff1 > 0)
+		start += (diff1+20)/20;
+	int diff2 = (a.y + yoff - a.h) - (y - h);
+	if (diff2 < 0)
+		end += (diff2-20)/20;
+}
+void checkbox::draw(int yoff)
+{
+	area a2 = a;
+	a2.y += yoff;
 	if (clicked)	glColor3d(.5, .5, .7);
 	else			glColor3d(.7, .7, .9);
+	glBegin(GL_QUADS);
+	drawarea(a2);
+	glEnd();
+	glBegin(GL_LINE_LOOP);
+	glColor3d(0.0, 0.0, 0.1);
+	drawarea(a2);
+	glEnd();
+	if (checked)
+		drawText("x", a2.x, a2.y - (a2.h/2) - 4);
+	glColor3d(.8, .8, .8);
+	drawText(name, a2.x + 12, a2.y - (a2.h/2) - 5);
+}
+void scrollbar::draw(int yoff)
+{
+	glColor3d(.5, .5, .7);
 	glBegin(GL_QUADS);
 	drawarea(a);
 	glEnd();
@@ -179,10 +213,17 @@ void checkbox::draw()
 	glColor3d(0.0, 0.0, 0.1);
 	drawarea(a);
 	glEnd();
-	if (checked)
-		drawText("x", a.x, a.y - (a.h/2) - 4);
-	glColor3d(.8, .8, .8);
-	drawText(name, a.x + 12, a.y - (a.h/2) - 5);
+	b.y = a.y - position;
+	
+	if (clicked)	glColor3d(0.2, 0.2, 0.2);
+	else			glColor3d(0.3, 0.3, 0.3);
+	glBegin(GL_QUADS);
+	drawarea(b);
+	glEnd();
+	glBegin(GL_LINE_LOOP);
+	glColor3d(0.0, 0.0, 0.1);
+	drawarea(b);
+	glEnd();
 }
 
 //Menu
@@ -190,6 +231,8 @@ Menu::~Menu()
 {
 	for (int i = 0; i < elems.size(); i++)
 		delete elems[i];
+	if (bar)
+		delete bar;
 }
 void Menu::draw()
 {
@@ -207,18 +250,41 @@ void Menu::draw()
 	glEnd();
 	glColor3d(.6, .6, .8);
 	drawText(name, a.x+2, a.y-15);
+	int yoff = bar? bar->position / bar->ratio : 0;
 	for (int i = 0; i < elems.size(); i++)
-		elems[i]->draw();
+	{
+		area a2 = elems[i]->a;
+		a2.y += yoff;
+		if (elems[i]->Type() == _textarea)
+		{
+			((textarea*)elems[i])->prepare(a.y-20, a.h-20, yoff);
+			elems[i]->draw(yoff);
+		}
+		else if (contained(area(a.x, a.y-20, a.w, a.h-20), a2))
+			elems[i]->draw(yoff);
+	}
+	if (bar)
+		bar->draw();
 }
 String Menu::click(int x, int y)
 {
+	int yoff = bar? bar->position / bar->ratio : 0;
 	//close active textbox (will reactivate if same textbox is clicked)
 	if (active)
 		active->clicked = false;
 	active = NULL;
+	//check for scrollbar
+	if (bar and overlap(bar->b, x, y))
+	{
+		bar->clicked = true;
+		return "";
+	}
 	//see if the click hit an elem, and perform action
 	for (int i = 0; i < elems.size(); i++)
-		if (overlap(elems[i]->a, x, y))
+	{
+		area a2 = elems[i]->a;
+		a2.y += yoff;
+		if (overlap(a2, x, y))
 		{
 			elems[i]->clicked = true;
 			if (elems[i]->Type() == element::_button)
@@ -229,11 +295,14 @@ String Menu::click(int x, int y)
 				overlap((textbox*)elems[i], x, y);
 			}
 		}
+	}
 	//return a miss
 	return "";
 }
 void Menu::release()
 {
+	if (bar)
+		bar->clicked = false;
 	for (int i = 0; i < elems.size(); i++)
 	{
 		if (elems[i]->Type() == element::_checkbox and elems[i]->clicked)
@@ -247,7 +316,7 @@ void Menu::release()
 }
 bool Menu::newButton(String n, String id, int x, int y)
 {
-	y = a.y - y;
+	y = a.y - y - 20;
 	x = a.x + x;
 	//ensure real id
 	if (id == "")
@@ -255,9 +324,21 @@ bool Menu::newButton(String n, String id, int x, int y)
 	//auto-assign size
 	int w = std::max((int)n.length()*9+14, 100);
 	int h = 20;
+	area a2 = a;
+	a2.y -= 20;
+	a2.h -= 20;
+	if (bar)
+		a2.h = bar->innerh;
+	//adjust height if necessary
+	int diff = (a2.y - a2.h) - (y - h - 20);
+	if (diff > 0)
+		a2.h += diff;
 	//ensure button is inside menu
-	if (!contained(area(a.x, a.y-20, a.w, a.h-20), area(x, y, w, h)))
+	if (!contained(a2, area(x, y, w, h)))
 		return logError("Button: " + n + " must be inside menu.");
+	//set scroll bar if height was adjusted
+	if (a.h - 20 != a2.h)
+		setScrollBar(a2.h);
 	//ensure buttons don't overlap/ ids don't conflict
 	for (int i = 0; i < elems.size(); i++)
 		if (overlap(elems[i]->a, area(x, y, w, h)) or id == elems[i]->id)
@@ -277,14 +358,26 @@ bool Menu::newButton(String n, String id, int x, int y)
 }
 bool Menu::newTextBox(String n, String id, int x, int y)
 {
-	y = a.y - y;
+	y = a.y - y - 20;
 	x = a.x + x;
 	//ensure box id is valid
 	if (id == "")
 		return logError("Invalid textbox id.");
+	area a2 = a;
+	a2.y -= 20;
+	a2.h -= 20;
+	if (bar)
+		a2.h = bar->innerh;
+	//adjust height if necessary
+	int diff = (a2.y - a2.h) - (y - 40);
+	if (diff > 0)
+		a2.h += diff;
 	//ensure box is inside menu
-	if (!contained(area(a.x, a.y-20, a.w, a.h-20), area(x, y, 200, 20)))
+	if (!contained(a2, area(x, y, 200, 20)))
 		return logError("Textbox: " + n + " must be inside menu.");
+	//set scroll bar if height was adjusted
+	if (a.h - 20 != a2.h)
+		setScrollBar(a2.h);
 	//ensure box id does not conflict
 	for (int i = 0; i < elems.size(); i++)
 		if (id == elems[i]->id)
@@ -307,7 +400,7 @@ bool Menu::newTextBox(String n, String id, int x, int y)
 }
 bool Menu::newText(String text, String id, int x, int y)
 {
-	y = a.y - y;
+	y = a.y - y - 20;
 	x = a.x + x;
 	//ensure there is real text
 	if (text == "")
@@ -334,25 +427,49 @@ bool Menu::newText(String text, String id, int x, int y)
 		T->lines.emplace_back(line);
 		num++;
 	}
+	area a2 = a;
+	a2.y -= 20;
+	a2.h -= 20;
+	if (bar)
+		a2.h = bar->innerh;
+	//adjust height if necessary
+	int diff = (a2.y - a2.h) - (T->a.y - T->a.h - 20);
+	if (diff > 0)
+		a2.h += diff;
 	//make sure text is contained
-	if (!contained(area(a.x, a.y-20, a.w, a.h-20), T->a))
+	if (!contained(a2, T->a))
 	{
 		delete T;
 		return logError("TextArea with contents:\n'" + text + "'\nwas not contained n menu.");
 	}
+	//set scroll bar if height was adjusted
+	if (a.h - 20 != a2.h)
+		setScrollBar(a2.h);
 	elems.emplace_back(T);
 	return true;
 }
 bool Menu::newCheckBox(String n, String id, bool check, int x, int y)
 {
-	y = a.y - y;
+	y = a.y - y - 20;
 	x = a.x + x;
 	//ensure box id is valid
 	if (id == "")
 		return logError("Invalid checkbox id.");
+	area a2 = a;
+	a2.y -= 10;
+	a2.h -= 10;
+	if (bar)
+		a2.h = bar->innerh;
+	//adjust height if necessary
+	int diff = (a2.y - a2.h) - (y - 40);
+	if (diff > 0)
+		a2.h += diff;
 	//ensure box is inside menu
-	if (!contained(area(a.x, a.y-10, a.w, a.h-10), area(x, y, 200, 20)))
+	if (!contained(a2, area(x, y, 200, 20)))
 		return logError("Textbox: " + n + " must be inside menu.");
+	//set scroll bar if height was adjusted
+	if (a.h - 20 != a2.h)
+		setScrollBar(a2.h);
 	//ensure box id does not conflict
 	for (int i = 0; i < elems.size(); i++)
 		if (id == elems[i]->id)
@@ -369,6 +486,24 @@ bool Menu::newCheckBox(String n, String id, bool check, int x, int y)
 	elems.emplace_back(c);
 	return true;
 }
+bool Menu::setScrollBar(int innerh)
+{
+	if (!bar)
+		bar = new scrollbar;
+	bar->a.x = a.x + a.w - 30;
+	bar->a.y = a.y - 20;
+	bar->a.h = a.h - 20;
+	bar->a.w = 20;
+	bar->b.w = bar->a.w;
+	bar->ratio = ((double)bar->a.h/(double)innerh);
+	bar->b.h =  bar->ratio * bar->a.h;
+	bar->b.x = bar->a.x;
+	bar->b.y = bar->a.y;
+	bar->clicked = false;
+	bar->innerh = innerh;
+	bar->position = 0;
+	return true;
+}
 bool Menu::inside(int x, int y)
 {
 	return overlap (a, x, y);
@@ -378,6 +513,8 @@ void Menu::reshape(int width, int height)
 	a.y -= height;
 	for (int i = 0; i < elems.size(); i++)
 		elems[i]->a.y -= height;
+	if (bar)
+		bar->a.y -= height;
 }
 
 //MenuBar
@@ -573,8 +710,11 @@ void _Mouse(int button, int state, int x, int y){
 	if (cllbck and R != "") (*cllbck)(R);
 	if (ms) (*ms)(button, state, x, y);
 }
-void _PassiveMouse(int x, int y){
+void _ActiveMouse(int x, int y){
 	instance->point(x, y);
+}
+void _PassiveMouse(int x, int y){
+	instance->point(x, y, false);
 }
 void _Keyboard(unsigned char key, int x, int y){
 	String R = instance->keyPressed(key);
@@ -625,6 +765,7 @@ void MenuManager::init()
 {
 	glutDisplayFunc(_Display);
 	glutMouseFunc(_Mouse);
+	glutMotionFunc(_ActiveMouse);
 	glutPassiveMotionFunc(_PassiveMouse);
 	glutKeyboardFunc(_Keyboard);
 	glutSpecialFunc(_Special);
@@ -679,6 +820,24 @@ String MenuManager::mouse(int button, int state, int x, int y)
 		return result;
 	}
 	return "";
+}
+void MenuManager::point(int x, int y, bool active)
+{
+	if (active)
+	{
+		for (int i = 0; i < menus.size(); i++)
+		{
+			if (menus[i]->bar and menus[i]->bar->clicked)
+			{
+				menus[i]->bar->position += my - (height - y);
+				if (menus[i]->bar->position < 0)
+					menus[i]->bar->position = 0;
+				if (menus[i]->bar->position + menus[i]->bar->b.h > menus[i]->bar->a.h)
+					menus[i]->bar->position = menus[i]->bar->a.h - menus[i]->bar->b.h;
+			}
+		}
+	}
+	mx = x, my = height - y;
 }
 bool MenuManager::newMenu(String name, String id, int x, int y, int w, int h)
 {
@@ -738,6 +897,15 @@ bool MenuManager::newText(String text, String id, String parent, int x, int y)
 	for (int i = 0; i < menus.size(); i++)
 		if (menus[i]->id == parent)
 			return menus[i]->newText(text, id, x, y);
+	//if parent does not exist
+	return logError("Parent \"" + parent + "\" does not exist.");
+}
+bool MenuManager::setScrollBar(String parent, int innerh)
+{
+	//search the menu names until match, then add bar
+	for (int i = 0; i < menus.size(); i++)
+		if (menus[i]->id == parent)
+			return menus[i]->setScrollBar(innerh);
 	//if parent does not exist
 	return logError("Parent \"" + parent + "\" does not exist.");
 }

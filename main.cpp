@@ -51,7 +51,7 @@ void SetMenu1()
 			{
 				if (rdr.tags[i]->child[j]->name == "name")
 					mManager.newButton(rdr.tags[i]->child[j]->content, 
-						rdr.tags[i]->child[j]->content, "menu1", 20, 40*(i+1));
+						rdr.tags[i]->child[j]->content, "menu1", 20, 20 + 40*i);
 			}
 		}
 	}
@@ -71,7 +71,7 @@ void Callback(String id)
 		project = id.substr(6);
 		mManager.newMenu(project, "menu2", 340, 40, 300, 500);
 		Parser rdr = loadFile();
-		int i = 0, j = 1, h = 40;
+		int i = 0, j = 1, h = 20;
 		for (; rdr.tags[i]->child[0]->content != project; i++);
 		for (; j < rdr.tags[i]->child.size(); j++)
 		{
@@ -116,8 +116,8 @@ void Callback(String id)
 		if (mManager.exists("menu6"))
 			mManager.deleteElement("menu6");
 		mManager.newMenu("New Project", "menu3", 340, 40, 440, 500);
-		mManager.newTextBox("", "text", "menu3", 20, 40);
-		mManager.newButton("Set Name", "name", "menu3", 20, 80);
+		mManager.newTextBox("", "text", "menu3", 20, 20);
+		mManager.newButton("Set Name", "name", "menu3", 20, 60);
 		mManager.linkTextBox("menu3:text", "menu3:name");
 		nproj = new tag;
 		nproj->name = "project";
@@ -145,9 +145,9 @@ void Callback(String id)
 			mManager.deleteElement("menu6");
 		mManager.newMenu("Confirm", "menu4", 150, 40, 500, 120);
 		mManager.newText("Are you sure you want to delete " + project + "?",
-			"text", "menu4", 20, 40);
-		mManager.newButton("Yes", "yes", "menu4", 20, 80);
-		mManager.newButton("No", "no", "menu4", 150, 80);
+			"text", "menu4", 20, 20);
+		mManager.newButton("Yes", "yes", "menu4", 20, 60);
+		mManager.newButton("No", "no", "menu4", 150, 60);
 	}
 	else if (id == "menubar:file:exit")
 	{
@@ -161,7 +161,7 @@ void Callback(String id)
 			return;
 		mManager.deleteElement("menu2");
 		mManager.newMenu("Edit Project", "menu6", 340, 40, 300, 500);
-		int h = 40;
+		int h = 20;
 		for (int j = 1; j < cproj->child.size(); j++)
 		{
 			if (cproj->child[j]->name == "opt" or cproj->child[j]->name == "main")
@@ -200,16 +200,16 @@ void Callback(String id)
 		}
 		mManager.deleteElement("menu2");
 		mManager.newMenu("Compiler Options", "menu5", 340, 40, 300, 500);
-		mManager.newCheckBox("use std=c++11", "c++", "menu5", a, 20, 40);
-		mManager.newCheckBox("use strict ansi", "ansi", "menu5", b, 20, 80);
-		mManager.newCheckBox("use opengl", "gl", "menu5", c, 20, 120);
-		mManager.newCheckBox("use glut", "glut", "menu5", d, 20, 160);
-		mManager.newCheckBox("no console", "nocmd", "menu5", e, 20, 200);
-		mManager.newButton("Apply", "apply1", "menu5", 20, 240);
-		mManager.newTextBox(optstr, "advbox", "menu5", 20, 280);
-		mManager.newButton("Apply", "apply2", "menu5", 20, 320);
+		mManager.newCheckBox("use std=c++11", "c++", "menu5", a, 20, 20);
+		mManager.newCheckBox("use strict ansi", "ansi", "menu5", b, 20, 60);
+		mManager.newCheckBox("use opengl", "gl", "menu5", c, 20, 100);
+		mManager.newCheckBox("use glut", "glut", "menu5", d, 20, 140);
+		mManager.newCheckBox("no console", "nocmd", "menu5", e, 20, 180);
+		mManager.newButton("Apply", "apply1", "menu5", 20, 220);
+		mManager.newTextBox(optstr, "advbox", "menu5", 20, 260);
+		mManager.newButton("Apply", "apply2", "menu5", 20, 300);
 		mManager.linkTextBox("menu5:advbox", "menu5:apply2");
-		mManager.newButton("Done", "done", "menu5", 140, 320);
+		mManager.newButton("Done", "done", "menu5", 140, 300);
 	}
 	else if (id == "menu0:ok")
 	{
@@ -244,7 +244,7 @@ void Callback(String id)
 			optstr += " -U__STRICT_ANSI__";
 		editOptions(project, optstr);
 		mManager.deleteElement("menu5:advbox");
-		mManager.newTextBox(optstr, "advbox", "menu5", 20, 280);
+		mManager.newTextBox(optstr, "advbox", "menu5", 20, 260);
 	}
 	else if (id == "menu5:apply2")
 	{
@@ -262,12 +262,12 @@ void Callback(String id)
 			return;		//send a message?
 		mManager.deleteElement("menu3");
 		mManager.newMenu(project, "menu3", 340, 40, 440, 500);
-		mManager.newTextBox("", "text", "menu3", 20, 40);
-		mManager.newButton(".h File", "hfile", "menu3", 20, 80);
-		mManager.newButton(".h & .cpp", "cppfile", "menu3", 20, 120);
-		mManager.newButton("Done", "done", "menu3", 20, 160);
+		mManager.newTextBox("", "text", "menu3", 20, 20);
+		mManager.newButton(".h File", "hfile", "menu3", 20, 60);
+		mManager.newButton(".h & .cpp", "cppfile", "menu3", 20, 100);
+		mManager.newButton("Done", "done", "menu3", 20, 140);
 		text = "Project\nName: " + project + "\nFiles:\nmain.cpp\n";
-		mManager.newText(text, "list", "menu3", 240, 40);
+		mManager.newText(text, "list", "menu3", 240, 20);
 		nproj->child.emplace_back(new tag);
 		nproj->child.back()->name = "name";
 		nproj->child.back()->content = project;
@@ -283,10 +283,10 @@ void Callback(String id)
 		if (name == "")
 			return;		//send a message?
 		mManager.deleteElement("menu3:text");
-		mManager.newTextBox("", "text", "menu3", 20, 40);
+		mManager.newTextBox("", "text", "menu3", 20, 20);
 		mManager.deleteElement("menu3:list");
 		text += name + ".h\n";
-		mManager.newText(text, "list", "menu3", 240, 40);
+		mManager.newText(text, "list", "menu3", 240, 20);
 		nproj->child.emplace_back(new tag);
 		nproj->child.back()->name = "h";
 		nproj->child.back()->content = name;
@@ -298,10 +298,10 @@ void Callback(String id)
 		if (name == "")
 			return;		//send a message?
 		mManager.deleteElement("menu3:text");
-		mManager.newTextBox("", "text", "menu3", 20, 40);
+		mManager.newTextBox("", "text", "menu3", 20, 20);
 		mManager.deleteElement("menu3:list");
 		text += name + ".cpp\n" + name + ".h\n";
-		mManager.newText(text, "list", "menu3", 240, 40);
+		mManager.newText(text, "list", "menu3", 240, 20);
 		nproj->child.emplace_back(new tag);
 		nproj->child.back()->name = "cpp";
 		nproj->child.back()->content = name;
@@ -322,8 +322,8 @@ void Callback(String id)
 		mManager.deleteElement("menu1");
 		mManager.deleteElement("menu2");
 		mManager.newMenu("result", "menu0", 20, 40, 760, 500);
-		mManager.newButton("OK", "ok", "menu0", 20, 40);
-		mManager.newText(words, "list", "menu0", 20, 80);
+		mManager.newButton("OK", "ok", "menu0", 20, 20);
+		mManager.newText(words, "list", "menu0", 20, 60);
 	}
 	else if (id == "menu2:run")
 	{
@@ -335,8 +335,8 @@ void Callback(String id)
 		mManager.deleteElement("menu1");
 		mManager.deleteElement("menu2");
 		mManager.newMenu("result", "menu0", 20, 40, 760, 500);
-		mManager.newButton("OK", "ok", "menu0", 20, 40);
-		mManager.newText(words, "list", "menu0", 20, 80);
+		mManager.newButton("OK", "ok", "menu0", 20, 20);
+		mManager.newText(words, "list", "menu0", 20, 60);
 	}
 	else if (id.compare(0, 5, "menu2") == 0)
 	{
@@ -344,8 +344,8 @@ void Callback(String id)
 		mManager.deleteElement("menu1");
 		mManager.deleteElement("menu2");
 		mManager.newMenu("result", "menu0", 20, 40, 760, 500);
-		mManager.newButton("OK", "ok", "menu0", 20, 40);
-		mManager.newText(words, "list", "menu0", 20, 80);
+		mManager.newButton("OK", "ok", "menu0", 20, 20);
+		mManager.newText(words, "list", "menu0", 20, 60);
 	}
 	else if (id.compare(0, 5, "menu6") == 0)
 	{
