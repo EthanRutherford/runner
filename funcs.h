@@ -51,13 +51,7 @@ String _system(String command, bool wait = true)
 				ret += chBuf[i];
 				printed++;
 			}
-			else 
-			{
-				ret += '\n';
-				printed = 0;
-				lines++;
-			}
-			if (lines > 40)
+			if (lines > 99)
 				return ret + "...";
 			if (printed > 78)
 			{
@@ -78,7 +72,7 @@ String _system(String command, bool wait = true)
 				}
 				lines++;
 			}
-			if (lines > 40)
+			if (lines > 99)
 				return ret + "...";
 		}
 	}

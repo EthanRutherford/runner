@@ -468,7 +468,7 @@ bool Menu::newCheckBox(String n, String id, bool check, int x, int y)
 	if (!contained(a2, area(x, y, 200, 20)))
 		return logError("Textbox: " + n + " must be inside menu.");
 	//set scroll bar if height was adjusted
-	if (a.h - 20 != a2.h)
+	if (a.h - 10 != a2.h)
 		setScrollBar(a2.h);
 	//ensure box id does not conflict
 	for (int i = 0; i < elems.size(); i++)

@@ -83,7 +83,7 @@ void Callback(String id)
 				rdr.tags[i]->child[j]->content, "menu2", 20, h);
 			h += 40;
 		}
-		if (h == 80)
+		if (h == 60)
 		{
 			h -= 40;
 			mManager.deleteElement("menu2:main");
