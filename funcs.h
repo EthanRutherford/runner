@@ -110,6 +110,24 @@ Parser loadFile()
 	return rdr;
 }
 
+void dontshow()
+{
+	SetFileAttributes("projects.cfg", FILE_ATTRIBUTE_NORMAL);
+	tag* dontshow = new tag;
+	dontshow->name = "dontshow";
+	dontshow->content = "true";
+	dontshow->shorthand = false;
+	tag* settings = new tag;
+	settings->name = "settings";
+	settings->child.emplace_back(dontshow);
+	settings->shorthand = false;
+	Writer wrtr;
+	wrtr.tags = loadFile().tags;
+	wrtr.tags.emplace_back(settings);
+	wrtr.write("projects.cfg");
+	SetFileAttributes("projects.cfg", FILE_ATTRIBUTE_HIDDEN);
+}
+
 void addProject(tag* proj)
 {
 	SetFileAttributes("projects.cfg", FILE_ATTRIBUTE_NORMAL);
@@ -272,6 +290,26 @@ String compile(String projname, String filename)
 		return filename + ".cpp compiled successfully.";
 	else
 		return result;
+}
+
+String debug(tag* proj)
+{
+	String name;
+	String options;
+	for (int i = 0; i < proj->child.size(); i++)
+	{
+		if (proj->child[i]->name == "name")
+			name = proj->child[i]->content;
+		if (proj->child[i]->name == "opt")
+			options += proj->child[i]->content;
+	}
+	String query = "g++ -g -o " + name + ".exe " + name + "\\*.cpp " + options;
+	String result = _system(query);
+	if (result != "")
+		return result;
+	name += ".exe";
+	_system("cmd /c start gdb " + name, false);
+	return "";
 }
 
 String link(tag* proj)

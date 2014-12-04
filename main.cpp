@@ -12,7 +12,6 @@ MenuManager mManager;
 
 tag* cproj;
 tag* nproj;
-String text;
 String project;
 
 void Reshape (int width, int height)
@@ -43,6 +42,7 @@ void SetMenu1()
 {
 	mManager.newMenu("Projects", "menu1", 20, 40, 300, 500);
 	Parser rdr = loadFile();
+	int x = 0;
 	for (int i = 0; i < rdr.tags.size(); i++)
 	{
 		if (rdr.tags[i]->name == "project")
@@ -51,48 +51,59 @@ void SetMenu1()
 			{
 				if (rdr.tags[i]->child[j]->name == "name")
 					mManager.newButton(rdr.tags[i]->child[j]->content, 
-						rdr.tags[i]->child[j]->content, "menu1", 20, 20 + 40*i);
+						rdr.tags[i]->child[j]->content, "menu1", 20, 20 + 40*x);
 			}
+			x++;
 		}
 	}
 }
+void SetWelcome(bool firstime = true)
+{
+	mManager.newMenu("Welcome", "welcome", 20, 40, 760, 540);
+	mManager.newText("Welcome to .runner version 9.\n"
+		"This program will manage all your programming needs.\n"
+		"Managing project folders, compiling, linking, compiler options, etc.\n\n"
+		"Shortcuts:\n"
+		"'o' key - open the projects files\n"
+		"'d' key - invoke the gdb debugger\n"
+		"'v' key - view this page again\n\n"
+		"If at anay point you need to view this page again, you can do that from\n"
+		"the view tab, or by using the 'v' key shortcut.",
+		"text", "welcome", 20, 20);
+	if (firstime)
+		mManager.newCheckBox("Don't show this screen on startup", 
+			"dontshow", "welcome", false, 220, 400);
+	mManager.newButton("Continue", "continue", "welcome", 300, 420);
+}
+void SetEdit()
+{
+	String title = "Edit '";
+	title += project + "'";
+	mManager.newMenu(title, "menu6", 340, 40, 440, 500);
+	mManager.newText("Add new files", "nfo", "menu6", 20, 20);
+	mManager.newTextBox("", "text", "menu6", 20, 60);
+	mManager.newButton(".h File", "hfile", "menu6", 20, 100);
+	mManager.newButton(".h & .cpp", "cppfile", "menu6", 140, 100);
+	mManager.newText("Delete Files", "nfo2", "menu6", 20, 140);
+	int h = 180;
+	for (int j = 1; j < cproj->child.size(); j++)
+	{
+		if (cproj->child[j]->name == "opt" or cproj->child[j]->name == "main")
+			continue;
+		mManager.newButton("delete " + cproj->child[j]->content,
+			cproj->child[j]->content, "menu6", 20, h);
+		h += 40;
+	}
+	mManager.newButton("Done", "done", "menu6", 20, h);
+}
 void Callback(String id)
 {
-	if (id.compare(0, 5, "menu1") == 0)
+	if (id == "welcome:continue")
 	{
-		if (mManager.exists("menu2"))
-			mManager.deleteElement("menu2");
-		if (mManager.exists("menu3"))
-			mManager.deleteElement("menu3");
-		if (mManager.exists("menu5"))
-			mManager.deleteElement("menu5");
-		if (mManager.exists("menu6"))
-			mManager.deleteElement("menu6");
-		project = id.substr(6);
-		mManager.newMenu(project, "menu2", 340, 40, 300, 500);
-		Parser rdr = loadFile();
-		int i = 0, j = 1, h = 20;
-		for (; rdr.tags[i]->child[0]->content != project; i++);
-		for (; j < rdr.tags[i]->child.size(); j++)
-		{
-			if (rdr.tags[i]->child[j]->name == "h")
-				continue;
-			if (rdr.tags[i]->child[j]->name == "opt")
-				continue;
-			mManager.newButton("compile " + rdr.tags[i]->child[j]->content,
-				rdr.tags[i]->child[j]->content, "menu2", 20, h);
-			h += 40;
-		}
-		if (h == 60)
-		{
-			h -= 40;
-			mManager.deleteElement("menu2:main");
-			mManager.newButton("compile", "comp", "menu2", 20, h);
-		}
-		else
-			mManager.newButton("Link Executable", "link", "menu2", 20, h);
-		mManager.newButton("Run Program", "run", "menu2", 20, h+40);
-		cproj = rdr.tags[i];
+		if (mManager.exists("welcome:dontshow") and mManager.requestCheck("welcome:dontshow"))
+			dontshow();
+		mManager.deleteElement("welcome");
+		SetMenu1();
 	}
 	else if (id == "menubar:file:new")
 	{
@@ -157,30 +168,15 @@ void Callback(String id)
 	{
 		if (cproj == NULL)
 			return;
-		if (!mManager.exists("menu2"))
-			return;
-		mManager.deleteElement("menu2");
-		mManager.newMenu("Edit Project", "menu6", 340, 40, 300, 500);
-		int h = 20;
-		for (int j = 1; j < cproj->child.size(); j++)
-		{
-			if (cproj->child[j]->name == "opt" or cproj->child[j]->name == "main")
-				continue;
-			mManager.newButton("delete " + cproj->child[j]->content,
-				cproj->child[j]->content, "menu6", 20, h);
-			h += 40;
-		}
-		mManager.newText("Add new files", "nfo", "menu6", 20, h);
-		mManager.newTextBox("", "text", "menu6", 20, h+40);
-		mManager.newButton(".h File", "hfile", "menu6", 20, h+80);
-		mManager.newButton(".h & .cpp", "cppfile", "menu6", 140, h+80);
-		mManager.newButton("Done", "done", "menu6", 20, h+120);
+		if (mManager.exists("menu2"))
+			mManager.deleteElement("menu2");
+		if (mManager.exists("menu5"))
+			mManager.deleteElement("menu5");
+		SetEdit();
 	}
 	else if (id == "menubar:edit:copt")
 	{
 		if (cproj == NULL)
-			return;
-		if (!mManager.exists("menu2"))
 			return;
 		String optstr;
 		bool a = false, b = false, c = false, d = false, e = false;
@@ -198,7 +194,10 @@ void Callback(String id)
 			if (optstr.find("-Wl,--subsystem,windows") != std::string::npos)
 				e = true;
 		}
-		mManager.deleteElement("menu2");
+		if (mManager.exists("menu2"))
+			mManager.deleteElement("menu2");
+		if (mManager.exists("menu6"))
+			mManager.deleteElement("menu6");
 		mManager.newMenu("Compiler Options", "menu5", 340, 40, 300, 500);
 		mManager.newCheckBox("use std=c++11", "c++", "menu5", a, 20, 20);
 		mManager.newCheckBox("use strict ansi", "ansi", "menu5", b, 20, 60);
@@ -211,11 +210,132 @@ void Callback(String id)
 		mManager.linkTextBox("menu5:advbox", "menu5:apply2");
 		mManager.newButton("Done", "done", "menu5", 140, 300);
 	}
+	else if (id == "menubar:edit:debug")
+	{
+		if (!mManager.exists("menu2"))
+			return;
+		String words = debug(cproj);
+		if (words != "")
+		{
+			mManager.deleteElement("menu1");
+			mManager.deleteElement("menu2");
+			mManager.newMenu("result", "menu0", 20, 40, 760, 500);
+			mManager.newButton("OK", "ok", "menu0", 20, 20);
+			mManager.newText(words, "list", "menu0", 20, 60);
+		}
+	}
+	else if (id == "menubar:view:welcome")
+	{
+		if (mManager.exists("menu0"))
+			mManager.deleteElement("menu0");
+		if (mManager.exists("menu1"))
+			mManager.deleteElement("menu1");
+		if (mManager.exists("menu2"))
+			mManager.deleteElement("menu2");
+		if (mManager.exists("menu3"))
+			mManager.deleteElement("menu3");
+		if (mManager.exists("menu4"))
+			mManager.deleteElement("menu4");
+		if (mManager.exists("menu5"))
+			mManager.deleteElement("menu5");
+		if (mManager.exists("menu6"))
+			mManager.deleteElement("menu6");
+		SetWelcome(false);
+	}
 	else if (id == "menu0:ok")
 	{
 		mManager.deleteElement("menu0");
 		SetMenu1();
 		Callback("menu1:" + cproj->child[0]->content);
+	}
+	else if (id.compare(0, 5, "menu1") == 0)
+	{
+		if (mManager.exists("menu2"))
+			mManager.deleteElement("menu2");
+		if (mManager.exists("menu3"))
+			mManager.deleteElement("menu3");
+		if (mManager.exists("menu5"))
+			mManager.deleteElement("menu5");
+		if (mManager.exists("menu6"))
+			mManager.deleteElement("menu6");
+		project = id.substr(6);
+		mManager.newMenu(project, "menu2", 340, 40, 300, 500);
+		Parser rdr = loadFile();
+		int i = 0, j = 1, h = 20;
+		for (; rdr.tags[i]->child[0]->content != project; i++);
+		for (; j < rdr.tags[i]->child.size(); j++)
+		{
+			if (rdr.tags[i]->child[j]->name == "h")
+				continue;
+			if (rdr.tags[i]->child[j]->name == "opt")
+				continue;
+			mManager.newButton("compile " + rdr.tags[i]->child[j]->content,
+				rdr.tags[i]->child[j]->content, "menu2", 20, h);
+			h += 40;
+		}
+		if (h == 60)
+		{
+			h -= 40;
+			mManager.deleteElement("menu2:main");
+			mManager.newButton("compile", "comp", "menu2", 20, h);
+		}
+		else
+			mManager.newButton("Link Executable", "link", "menu2", 20, h);
+		mManager.newButton("Run Program", "run", "menu2", 20, h+40);
+		cproj = rdr.tags[i];
+	}
+	else if (id == "menu2:link")
+	{
+		String words = link(cproj);
+		mManager.deleteElement("menu1");
+		mManager.deleteElement("menu2");
+		mManager.newMenu("result", "menu0", 20, 40, 760, 500);
+		mManager.newButton("OK", "ok", "menu0", 20, 20);
+		mManager.newText(words, "list", "menu0", 20, 60);
+	}
+	else if (id == "menu2:run")
+	{
+		run(project);
+	}
+	else if (id == "menu2:comp")
+	{
+		String words = compileSingle(cproj);
+		mManager.deleteElement("menu1");
+		mManager.deleteElement("menu2");
+		mManager.newMenu("result", "menu0", 20, 40, 760, 500);
+		mManager.newButton("OK", "ok", "menu0", 20, 20);
+		mManager.newText(words, "list", "menu0", 20, 60);
+	}
+	else if (id.compare(0, 5, "menu2") == 0)
+	{
+		String words = compile(cproj->child[0]->content, id.substr(6));
+		mManager.deleteElement("menu1");
+		mManager.deleteElement("menu2");
+		mManager.newMenu("result", "menu0", 20, 40, 760, 500);
+		mManager.newButton("OK", "ok", "menu0", 20, 20);
+		mManager.newText(words, "list", "menu0", 20, 60);
+	}
+	else if (id == "menu3:name")
+	{
+		project = mManager.requestText("menu3:text");
+		if (project == "")
+			return;		//send a message?
+		mManager.deleteElement("menu3");
+		nproj->child.emplace_back(new tag);
+		nproj->child.back()->name = "name";
+		nproj->child.back()->content = project;
+		nproj->child.back()->shorthand = false;
+		nproj->child.emplace_back(new tag);
+		nproj->child.back()->name = "main";
+		nproj->child.back()->content = "main";
+		nproj->child.back()->shorthand = false;
+		addProject(nproj);
+		delete nproj;
+		nproj = NULL;
+		mManager.deleteElement("menu1");
+		SetMenu1();
+		Callback("menu1:" + project);
+		Callback("menubar:edit:edit");
 	}
 	else if (id.compare(0, 5, "menu4") == 0)
 	{
@@ -254,98 +374,6 @@ void Callback(String id)
 	{
 		mManager.deleteElement("menu5");
 		Callback("menu1:" + project);
-	}
-	else if (id == "menu3:name")
-	{
-		project = mManager.requestText("menu3:text");
-		if (project == "")
-			return;		//send a message?
-		mManager.deleteElement("menu3");
-		mManager.newMenu(project, "menu3", 340, 40, 440, 500);
-		mManager.newTextBox("", "text", "menu3", 20, 20);
-		mManager.newButton(".h File", "hfile", "menu3", 20, 60);
-		mManager.newButton(".h & .cpp", "cppfile", "menu3", 20, 100);
-		mManager.newButton("Done", "done", "menu3", 20, 140);
-		text = "Project\nName: " + project + "\nFiles:\nmain.cpp\n";
-		mManager.newText(text, "list", "menu3", 240, 20);
-		nproj->child.emplace_back(new tag);
-		nproj->child.back()->name = "name";
-		nproj->child.back()->content = project;
-		nproj->child.back()->shorthand = false;
-		nproj->child.emplace_back(new tag);
-		nproj->child.back()->name = "main";
-		nproj->child.back()->content = "main";
-		nproj->child.back()->shorthand = false;
-	}
-	else if (id == "menu3:hfile")
-	{
-		String name = mManager.requestText("menu3:text");
-		if (name == "")
-			return;		//send a message?
-		mManager.deleteElement("menu3:text");
-		mManager.newTextBox("", "text", "menu3", 20, 20);
-		mManager.deleteElement("menu3:list");
-		text += name + ".h\n";
-		mManager.newText(text, "list", "menu3", 240, 20);
-		nproj->child.emplace_back(new tag);
-		nproj->child.back()->name = "h";
-		nproj->child.back()->content = name;
-		nproj->child.back()->shorthand = false;
-	}
-	else if (id == "menu3:cppfile")
-	{
-		String name = mManager.requestText("menu3:text");
-		if (name == "")
-			return;		//send a message?
-		mManager.deleteElement("menu3:text");
-		mManager.newTextBox("", "text", "menu3", 20, 20);
-		mManager.deleteElement("menu3:list");
-		text += name + ".cpp\n" + name + ".h\n";
-		mManager.newText(text, "list", "menu3", 240, 20);
-		nproj->child.emplace_back(new tag);
-		nproj->child.back()->name = "cpp";
-		nproj->child.back()->content = name;
-		nproj->child.back()->shorthand = false;
-	}
-	else if (id == "menu3:done")
-	{
-		addProject(nproj);
-		delete nproj;
-		mManager.deleteElement("menu3");
-		mManager.deleteElement("menu1");
-		SetMenu1();
-		Callback("menu1:" + project);
-	}
-	else if (id == "menu2:link")
-	{
-		String words = link(cproj);
-		mManager.deleteElement("menu1");
-		mManager.deleteElement("menu2");
-		mManager.newMenu("result", "menu0", 20, 40, 760, 500);
-		mManager.newButton("OK", "ok", "menu0", 20, 20);
-		mManager.newText(words, "list", "menu0", 20, 60);
-	}
-	else if (id == "menu2:run")
-	{
-		run(project);
-	}
-	else if (id == "menu2:comp")
-	{
-		String words = compileSingle(cproj);
-		mManager.deleteElement("menu1");
-		mManager.deleteElement("menu2");
-		mManager.newMenu("result", "menu0", 20, 40, 760, 500);
-		mManager.newButton("OK", "ok", "menu0", 20, 20);
-		mManager.newText(words, "list", "menu0", 20, 60);
-	}
-	else if (id.compare(0, 5, "menu2") == 0)
-	{
-		String words = compile(cproj->child[0]->content, id.substr(6));
-		mManager.deleteElement("menu1");
-		mManager.deleteElement("menu2");
-		mManager.newMenu("result", "menu0", 20, 40, 760, 500);
-		mManager.newButton("OK", "ok", "menu0", 20, 20);
-		mManager.newText(words, "list", "menu0", 20, 60);
 	}
 	else if (id.compare(0, 5, "menu6") == 0)
 	{
@@ -386,14 +414,24 @@ void initMenu()
 	mManager.ReshapeFunc(Reshape);
 	mManager.newTab("File", "file");
 	mManager.newTab("Edit", "edit");
+	mManager.newTab("View", "view");
 	mManager.newButton("New", "new", "file");
 	mManager.newButton("Open Project Files", "open", "file");
 	mManager.newButton("Delete", "delete", "file");
 	mManager.newButton("Exit", "exit", "file");
 	mManager.newButton("Edit Project", "edit", "edit");
 	mManager.newButton("Compiler Options", "copt", "edit");
+	mManager.newButton("Debugger", "debug", "edit");
+	mManager.newButton("Welcome", "welcome", "view");
 	mManager.assignShortcut("menubar:file:open", 'o');
-	SetMenu1();
+	mManager.assignShortcut("menubar:edit:debug", 'd');
+	Parser rdr = loadFile();
+	int i = 0;
+	for (; i + 1 < rdr.tags.size() and rdr.tags[i]->name != "settings"; i++);
+	if (rdr.tags[i]->name == "settings" and rdr.tags[i]->child[0]->content == "true")
+		SetMenu1();
+	else
+		SetWelcome();
 }
 int main(int argc, char** argv)
 {

@@ -189,6 +189,7 @@ void checkbox::draw(int yoff)
 {
 	area a2 = a;
 	a2.y += yoff;
+	a2.w = 10;
 	if (clicked)	glColor3d(.5, .5, .7);
 	else			glColor3d(.7, .7, .9);
 	glBegin(GL_QUADS);
@@ -478,7 +479,7 @@ bool Menu::newCheckBox(String n, String id, bool check, int x, int y)
 	c->a.x = x;
 	c->a.y = y;
 	c->a.h = 10;
-	c->a.w = 10;
+	c->a.w = 12 + n.length()*9;
 	c->checked = check;
 	c->clicked = false;
 	c->name = n;
