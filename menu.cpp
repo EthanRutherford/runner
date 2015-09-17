@@ -342,8 +342,12 @@ bool Menu::newButton(String n, String id, int x, int y)
 		setScrollBar(a2.h);
 	//ensure buttons don't overlap/ ids don't conflict
 	for (int i = 0; i < elems.size(); i++)
-		if (overlap(elems[i]->a, area(x, y, w, h)) or id == elems[i]->id)
+	{
+		if (overlap(elems[i]->a, area(x, y, w, h)))
+			return logError("Overlap between " + elems[i]->id + " and " + id + ".");
+		if (id == elems[i]->id)
 			return logError("Id conflict between " + elems[i]->name + " and " + n + ".");
+	}
 	
 	//create and add the button
 	button* b = new button;
@@ -357,7 +361,7 @@ bool Menu::newButton(String n, String id, int x, int y)
 	elems.emplace_back(b);
 	return true;
 }
-bool Menu::newTextBox(String n, String id, int x, int y)
+bool Menu::newTextBox(String n, String id, int x, int y, int w)
 {
 	y = a.y - y - 20;
 	x = a.x + x;
@@ -374,7 +378,7 @@ bool Menu::newTextBox(String n, String id, int x, int y)
 	if (diff > 0)
 		a2.h += diff;
 	//ensure box is inside menu
-	if (!contained(a2, area(x, y, 200, 20)))
+	if (!contained(a2, area(x, y, w, 20)))
 		return logError("Textbox: " + n + " must be inside menu.");
 	//set scroll bar if height was adjusted
 	if (a.h - 20 != a2.h)
@@ -388,7 +392,7 @@ bool Menu::newTextBox(String n, String id, int x, int y)
 	textbox* t = new textbox;
 	t->a.x = x;
 	t->a.y = y;
-	t->a.w = 200;
+	t->a.w = w;
 	t->a.h = 20;
 	t->clicked = false;
 	t->contents = n;
@@ -441,7 +445,8 @@ bool Menu::newText(String text, String id, int x, int y)
 	if (!contained(a2, T->a))
 	{
 		delete T;
-		return logError("TextArea with contents:\n'" + text + "'\nwas not contained n menu.");
+		return logError("TextArea with contents:\n'" + text + 
+			"'\nwas not contained in menu.");
 	}
 	//set scroll bar if height was adjusted
 	if (a.h - 20 != a2.h)
@@ -467,7 +472,7 @@ bool Menu::newCheckBox(String n, String id, bool check, int x, int y)
 		a2.h += diff;
 	//ensure box is inside menu
 	if (!contained(a2, area(x, y, 200, 20)))
-		return logError("Textbox: " + n + " must be inside menu.");
+		return logError("Checkbox: " + n + " must be inside menu.");
 	//set scroll bar if height was adjusted
 	if (a.h - 10 != a2.h)
 		setScrollBar(a2.h);
@@ -701,9 +706,11 @@ void (*kybrd)(unsigned char, int, int);
 void (*spcl)(int, int, int);
 void (*rshp)(int, int);
 void _Display(){
+	glClear(GL_COLOR_BUFFER_BIT);
+	glClearColor(0, 0, .2, 0);
 	if (dsply) (*dsply)();
 	instance->draw();
-	glFlush();
+	glutSwapBuffers();
 	glutPostRedisplay();
 }
 void _Mouse(int button, int state, int x, int y){
@@ -874,12 +881,12 @@ bool MenuManager::newButton(String n, String id, String parent, int x, int y)
 	return logError("When creating button '" + n + "': Parent '" + parent 
 		+ "' is not valid.");
 }
-bool MenuManager::newTextBox(String n, String id, String parent, int x, int y)
+bool MenuManager::newTextBox(String n, String id, String parent, int x, int y, int w)
 {
 	//search the menu names until match, then add box
 	for (int i = 0; i < menus.size(); i++)
 		if (menus[i]->id == parent)
-			return menus[i]->newTextBox(n, id, x, y);
+			return menus[i]->newTextBox(n, id, x, y, w);
 	//if parent does not exist
 	return logError("Parent \"" + parent + "\" does not exist.");
 }

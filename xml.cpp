@@ -11,19 +11,18 @@ bool Parser::read(String filename)
 		L = input.get();
 		if (L == '<')
 		{
-			tag* n = new tag;
-			tags.emplace_back(n);
-			if (!parse(n, input))
+			tags.emplace_back();
+			if (!parse(tags.back(), input))
 				return false;
 		}
 	}
 	return true;
 }
 
-bool Parser::parse(tag* cur, ifile& input)
+bool Parser::parse(tag& cur, ifile& input)
 {
 	char L;
-	cur->shorthand = false;
+	cur.shorthand = false;
 	while (input.good())	//get name
 	{
 		L = input.get();
@@ -41,20 +40,20 @@ bool Parser::parse(tag* cur, ifile& input)
 				if (L == '/' and input.peek() == '>')
 				{
 					input.get();
-					cur->shorthand = true;
+					cur.shorthand = true;
 					return true;
 				}
-				cur->attribute += L;
+				cur.attribute += L;
 			}
 			break;
 		}
 		if (L == '/' and input.peek() == '>')
 		{
 			input.get();
-			cur->shorthand = true;
+			cur.shorthand = true;
 			return true;
 		}
-		cur->name += L;
+		cur.name += L;
 	}
 	while (input.good())	//get content
 	{
@@ -63,10 +62,9 @@ bool Parser::parse(tag* cur, ifile& input)
 		{
 			if (input.peek() != '/')	//child tag
 			{
-				tag* n = new tag;
-				cur->child.emplace_back(n);
-				cur->content += "@c";	//identifier for position of child
-				parse(n, input);
+				cur.child.emplace_back();
+				cur.content += "@c";	//identifier for position of child
+				parse(cur.child.back(), input);
 				continue;
 			}
 			String endname;
@@ -80,43 +78,43 @@ bool Parser::parse(tag* cur, ifile& input)
 					continue;
 				endname += L;
 			}
-			if (endname != cur->name)
+			if (endname != cur.name)
 				return false;
 			return true;
 		}
-		cur->content += L;
+		cur.content += L;
 	}
 	return true;
 }
 
-String writetag(tag* cur)
+String writetag(tag& cur)
 {
 	String out = "";
-	out += "<" + cur->name;								//print name
-	if (cur->attribute.size())
-		out += " " + cur->attribute;					//print attribute
-	if (cur->shorthand)
+	out += "<" + cur.name;								//print name
+	if (cur.attribute.size())
+		out += " " + cur.attribute;					//print attribute
+	if (cur.shorthand)
 		return out + "/>";								//shorthand
 	out += ">";
 	int childnum = 0;
-	for (int i = 0; i < cur->content.size(); i++)
+	for (int i = 0; i < cur.content.size(); i++)
 	{
-		if (cur->content[i] == '@' and cur->content[i+1] == 'c')
+		if (cur.content[i] == '@' and cur.content[i+1] == 'c')
 		{
-			out += writetag(cur->child[childnum++]);	//emplace children
+			out += writetag(cur.child[childnum++]);	//emplace children
 			i++;
 			continue;
 		}
-		out += cur->content[i];							//write content
+		out += cur.content[i];							//write content
 	}
-	for (int i = childnum; i < cur->child.size(); i++)		//print any remaining children
+	for (int i = childnum; i < cur.child.size(); i++)		//print any remaining children
 	{
 		out += "\n\t";
-		out += writetag(cur->child[childnum++]);		//emplace children
-		if (childnum == cur->child.size())
+		out += writetag(cur.child[childnum++]);		//emplace children
+		if (childnum == cur.child.size())
 			out += "\n";
 	}
-	out += "</" + cur->name + ">";						//endtag
+	out += "</" + cur.name + ">";						//endtag
 	return out;
 }
 
@@ -126,3 +124,4 @@ void Writer::write(String filename)
 	for (int i = 0; i < tags.size(); i++)
 		output << writetag(tags[i]) << '\n';
 }
+

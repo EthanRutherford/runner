@@ -14,18 +14,19 @@ struct tag{
 	String content;
 	String attribute;
 	bool shorthand;
-	std::vector<tag*> child;
+	std::vector<tag> child;
 };
 
 struct Parser{
 	bool read(String filename);
-	std::vector<tag*> tags;
-	private: bool parse(tag* cur, ifile& text);
+	std::vector<tag> tags;
+	private: bool parse(tag& cur, ifile& text);
 };
 
 struct Writer{
+
 	void write(String filename);
-	std::vector<tag*> tags;
+	std::vector<tag> tags;
 };
 
 #endif

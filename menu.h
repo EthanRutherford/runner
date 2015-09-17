@@ -1,5 +1,6 @@
 //	!	HIGH PRIORITY
 //	!	TODO: use subwindows (or working alternative)
+//	!	TODO: <alternative> use shaders to draw menus
 //	+	MEDIUM PRIORITY
 //	+	TODO: add radiobuttons
 //	-	LOW PRIORITY
@@ -123,7 +124,7 @@ class Menu : public element{
 		//fails if invalid button placement/name
 		bool newButton(String n, String id, int x, int y);
 		//fails if textbox is invalid
-		bool newTextBox(String n, String id, int x, int y);
+		bool newTextBox(String n, String id, int x, int y, int w);
 		//fails if text is invalid
 		bool newText(String text, String id, int x, int y);
 		//fails if checkbox invalid
@@ -193,7 +194,7 @@ class MenuManager{
 		bool newButton(String n, String id, String parent, int x=0, int y=0);
 		
 		//add a textbox to a parent menu
-		bool newTextBox(String n, String id, String parent, int x, int y);
+		bool newTextBox(String n, String id, String parent, int x, int y, int w=200);
 		
 		//add a checkbox to a parent menu
 		bool newCheckBox(String n, String id, String parent, bool check, int x, int y);
