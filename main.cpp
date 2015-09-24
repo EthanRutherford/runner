@@ -95,7 +95,10 @@ void SetMenu0(String words)
 {
 	if (words != "")
 	{
-		SetFailed(proj, running);
+		if (running == "compile")
+			SetFailed(proj, "main");
+		else
+			SetFailed(proj, running);
 		mManager.deleteElement("menu1");
 		mManager.deleteElement("menu2");
 		mManager.newMenu("result", "menu0", 20, 40, 760, 520);
@@ -511,14 +514,14 @@ void Callback(String id)
 			String name = mManager.requestText("menu6:text");
 			if (name == "")
 				return;
-			addTo(project, "h", name);
+			addTo(project, "h", name, cproj);
 		}
 		else if (id.substr(6) == "cppfile")
 		{
 			String name = mManager.requestText("menu6:text");
 			if (name == "")
 				return;
-			addTo(project, "cpp", name);
+			addTo(project, "cpp", name, cproj);
 		}
 		else if (id.substr(6) == "done")
 		{
@@ -527,7 +530,7 @@ void Callback(String id)
 		}
 		else
 		{
-			deleteFrom(project, id.substr(6));
+			deleteFrom(project, id.substr(6), cproj);
 		}
 		mManager.deleteElement("menu6");
 		Callback("menu1:" + project);

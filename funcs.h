@@ -217,14 +217,10 @@ void editOptions(String name, String optstr, tag& proj)
 		child.shorthand = false;
 		wrtr.tags[i].child.insert(wrtr.tags[i].child.begin()+1, child);
 		wrtr.tags[i].content = "\n\t@c" + wrtr.tags[i].content;
-		proj.child.insert(proj.child.begin()+1, child);
-		proj.content = "\n\t@c" + proj.content;
 	}
 	else
-	{
 		wrtr.tags[i].child[1].content = optstr;
-		proj.child[1].content = optstr;
-	}
+	proj = wrtr.tags[i];
 	wrtr.write("projects.cfg");
 	SetFileAttributes("projects.cfg", FILE_ATTRIBUTE_HIDDEN);
 }
@@ -249,7 +245,7 @@ void Delete(String name)
 	SetFileAttributes("projects.cfg", FILE_ATTRIBUTE_HIDDEN);
 }
 
-void deleteFrom(String name, String file)
+void deleteFrom(String name, String file, tag& proj)
 {
 	SetFileAttributes("projects.cfg", FILE_ATTRIBUTE_NORMAL);
 	Writer wrtr;
@@ -261,11 +257,12 @@ void deleteFrom(String name, String file)
 		if (j == wrtr.tags[i].child.size()) return;
 	wrtr.tags[i].child.erase(wrtr.tags[i].child.begin()+j);
 	wrtr.tags[i].content = "";
+	proj = wrtr.tags[i];
 	wrtr.write("projects.cfg");
 	SetFileAttributes("projects.cfg", FILE_ATTRIBUTE_HIDDEN);
 }
 
-void addTo(String name, String ftype, String fname)
+void addTo(String name, String ftype, String fname, tag& proj)
 {
 	SetFileAttributes("projects.cfg", FILE_ATTRIBUTE_NORMAL);
 	Writer wrtr;
@@ -278,6 +275,7 @@ void addTo(String name, String ftype, String fname)
 	wrtr.tags[i].child.back().name = ftype;
 	wrtr.tags[i].child.back().content = fname;
 	wrtr.tags[i].child.back().shorthand = false;
+	proj = wrtr.tags[i];
 	wrtr.write("projects.cfg");
 	SetFileAttributes("projects.cfg", FILE_ATTRIBUTE_HIDDEN);
 	if (ftype == "cpp")
