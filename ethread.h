@@ -1,6 +1,17 @@
 #ifndef ETHREAD_H
 #define ETHREAD_H
-#include <Windows.h>
+
+#if defined(_MSC_VER) || defined(WIN32)  || defined(_WIN32) || defined(__WIN32__) \
+	|| defined(WIN64) || defined(_WIN64) || defined(__WIN64__)
+	#define OS_WIN32
+#endif
+
+#ifdef OS_WIN32
+	#include <Windows.h>
+#else
+	#include <pthread.h>
+	#include <unistd.h>
+#endif
 #include <exception>
 #include "safe_ptr.h"
 #include "callable.h"
@@ -18,7 +29,7 @@ template<class R, class... Args>
 struct thread_func_info
 {
 	thread_func_info(func_ptr<R,Args...> cb, Args... a)
-		: func(cb, a...) { r_value = new R; }
+		: func(cb, a...) { r_value = new R;}
 	void call() {
 		*r_value = func.call();
 	}
@@ -38,6 +49,7 @@ struct thread_func_info<void, Args...>
 	int* r_value;
 };
 
+#ifdef OS_WIN32
 template<class R, class... Args>
 static DWORD WINAPI thread_routine(LPVOID param)
 {
@@ -47,6 +59,17 @@ static DWORD WINAPI thread_routine(LPVOID param)
 	delete info;
 	return 0;
 }
+#else
+template<class R, class... Args>
+static void* thread_routine(void* param)
+{
+	thread_func_info<R,Args...>* info =
+		reinterpret_cast<thread_func_info<R,Args...>*>(param);
+	info->call();
+	delete info;
+	return 0;
+}
+#endif
 
 class thread{
 	public:
@@ -55,15 +78,20 @@ class thread{
 			thread_func_info<R,Args...>* info = 
 				new thread_func_info<R,Args...>(func, args...);
 			r_value = info->r_value;
+			#ifdef OS_WIN32
 			_hthread = CreateThread(NULL,0,&thread_routine<R,Args...>,info,0,NULL);
 			if (_hthread == INVALID_HANDLE_VALUE)
 				throw thread_runtime_error();
+			#else
+			if (pthread_create(&threadid,NULL,&thread_routine<R,Args...>,info) != 0)
+				throw thread_runtime_error();
+			#endif
 		}
 		~thread();
 		int rejoin(int timeout = 0);
 		int exitCode();
 		bool running();
-		void sleep(int time) {Sleep(time);}
+		static void sleep(int time);
 		template <class R>
 		R getResult() {
 			rejoin();
@@ -71,10 +99,15 @@ class thread{
 		}
 		static const int NOT_EXITED;
 	private:
+		#ifdef OS_WIN32
 		HANDLE _hthread;
+		#else
+		pthread_t threadid;
+		#endif
 		safe_ptr r_value;
 };
 
+#ifdef OS_WIN32
 class benaphore{
 	public:
 		benaphore();
@@ -89,5 +122,6 @@ class benaphore{
 		DWORD recursions;
 		DWORD owner;
 };
+#endif
 
 #endif

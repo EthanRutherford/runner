@@ -12,9 +12,9 @@
 #define MENU_H
 
 #include <string>
-#include <gl/gl.h>
-#include <gl/freeglut.h>
-#include <gl/glext.h>
+#include <GL/gl.h>
+#include <GL/freeglut.h>
+#include <GL/glext.h>
 #include <vector>
 #include <map>
 

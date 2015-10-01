@@ -3,19 +3,34 @@
 
 #include <iterator>
 #include <vector>
-#include <set>
+#include <sstream>
 #include "xml.h"
+#include "ethread.h"
+
+#ifdef OS_WIN32
+#define cfgfile "projects.cfg"
+#else
+#define cfgfile ".projects.cfg"
+#include <sys/types.h>
+#include <sys/stat.h>
+#endif
 
 struct Project {
 	void clear() {file.clear(); status.clear();}
-	void emplace_back(String s) {file.emplace_back(s); status.emplace_back(' ');}
+	void emplace_back(String s) {
+		file.emplace_back(s); 
+		status.emplace_back(' ');
+		dependencies.emplace_back("");
+	}
 	String name;
 	std::vector<String> file;
+	std::vector<String> dependencies;
 	std::vector<char> status;
 };
 
 String _system(String command, bool wait = true)
 {
+	#ifdef OS_WIN32
 	SECURITY_ATTRIBUTES secAttr;
 	secAttr.nLength = sizeof(SECURITY_ATTRIBUTES);
 	secAttr.bInheritHandle = true;
@@ -32,11 +47,8 @@ String _system(String command, bool wait = true)
 	startupInfo.hStdOutput = writeInChild;
 	startupInfo.dwFlags    = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
 	startupInfo.wShowWindow = SW_HIDE;
-	char* commandCopy = (char*)malloc(command.size() + 1);
-	strcpy(commandCopy, command.c_str());
-	CreateProcess(NULL, commandCopy, NULL, NULL,
+	CreateProcess(NULL, &command[0], NULL, NULL,
 		true, 0, NULL, NULL, &startupInfo, &procInfo);
-	free(commandCopy);
 	CloseHandle(procInfo.hProcess);
 	CloseHandle(procInfo.hThread);
 	CloseHandle(writeInChild);
@@ -51,7 +63,7 @@ String _system(String command, bool wait = true)
 	while (true)
 	{
 		bSuccess = ReadFile(readFromChild, chBuf, 128, &dwRead, NULL);
-		if( ! bSuccess || dwRead == 0 ) break;
+		if(!bSuccess || dwRead == 0) break;
 		for (int i = 0; i < dwRead; i++)
 		{
 			if (chBuf[i] == '\n')
@@ -91,9 +103,21 @@ String _system(String command, bool wait = true)
 		}
 	}
 	return ret;
+	#else
+	FILE* pipe = popen(command.c_str(), "r");
+    if (!pipe) return "ERROR";
+    char buffer[128];
+    std::string result = "";
+    while (!feof(pipe)) {
+        if (fgets(buffer, 128, pipe) != NULL)
+            result += buffer;
+    }
+    pclose(pipe);
+    return result;
+	#endif
 }
 
-std::string setDef(std::string name)
+String setDef(String name)
 {
 	for (int i = 0; i < name.length(); i++)
 	{
@@ -104,7 +128,20 @@ std::string setDef(std::string name)
 	return name;
 }
 
-void checkfor(std::string file)
+void lock(String file)
+{
+	#ifdef OS_WIN32
+	SetFileAttributes(file.c_str(), FILE_ATTRIBUTE_HIDDEN);
+	#endif
+}
+void unlock(String file)
+{
+	#ifdef OS_WIN32
+	SetFileAttributes(file.c_str(), FILE_ATTRIBUTE_NORMAL);
+	#endif
+}
+
+void checkfor(String file)
 {
 	std::ifstream ifile(file.c_str());
 	if (!ifile)
@@ -112,21 +149,21 @@ void checkfor(std::string file)
 		std::ofstream ofile(file.c_str());
 		ofile.close();
 		ifile.close();
-		SetFileAttributes(file.c_str(), FILE_ATTRIBUTE_HIDDEN);
+		lock(file.c_str());
 	}
 }
 
 Parser loadFile()
 {
 	Parser rdr;
-	checkfor("projects.cfg");
-	rdr.read("projects.cfg");
+	checkfor(cfgfile);
+	rdr.read(cfgfile);
 	return rdr;
 }
 
 void dontshow()
 {
-	SetFileAttributes("projects.cfg", FILE_ATTRIBUTE_NORMAL);
+	unlock(cfgfile);
 	tag dontshow;
 	dontshow.name = "dontshow";
 	dontshow.content = "true";
@@ -138,18 +175,18 @@ void dontshow()
 	Writer wrtr;
 	wrtr.tags = loadFile().tags;
 	wrtr.tags.emplace_back(settings);
-	wrtr.write("projects.cfg");
-	SetFileAttributes("projects.cfg", FILE_ATTRIBUTE_HIDDEN);
+	wrtr.write(cfgfile);
+	lock(cfgfile);
 }
 
 void addProject(tag& proj)
 {
-	SetFileAttributes("projects.cfg", FILE_ATTRIBUTE_NORMAL);
+	unlock(cfgfile);
 	Writer wrtr;
 	wrtr.tags = loadFile().tags;
 	wrtr.tags.emplace_back(proj);
-	wrtr.write("projects.cfg");
-	SetFileAttributes("projects.cfg", FILE_ATTRIBUTE_HIDDEN);
+	wrtr.write(cfgfile);
+	lock(cfgfile);
 	std::string folder = proj.child[0].content;
 	_system("cmd /c mkdir " + folder);
 	for (int i = 1; i < proj.child.size(); i++)
@@ -203,7 +240,7 @@ void openProject(tag& proj)
 
 void editOptions(String name, String optstr, tag& proj)
 {
-	SetFileAttributes("projects.cfg", FILE_ATTRIBUTE_NORMAL);
+	unlock(cfgfile);
 	Writer wrtr;
 	wrtr.tags = loadFile().tags;
 	int i = 0;
@@ -221,8 +258,8 @@ void editOptions(String name, String optstr, tag& proj)
 	else
 		wrtr.tags[i].child[1].content = optstr;
 	proj = wrtr.tags[i];
-	wrtr.write("projects.cfg");
-	SetFileAttributes("projects.cfg", FILE_ATTRIBUTE_HIDDEN);
+	wrtr.write(cfgfile);
+	lock(cfgfile);
 }
 
 String run(String name)
@@ -234,20 +271,20 @@ String run(String name)
 
 void Delete(String name)
 {
-	SetFileAttributes("projects.cfg", FILE_ATTRIBUTE_NORMAL);
+	unlock(cfgfile);
 	Writer wrtr;
 	wrtr.tags = loadFile().tags;
 	int i = 0;
 	for (; wrtr.tags[i].child[0].content != name; i++);
 	_system("cmd /c RD /S /Q " + wrtr.tags[i].child[0].content, false);
 	wrtr.tags.erase(wrtr.tags.begin()+i);
-	wrtr.write("projects.cfg");
-	SetFileAttributes("projects.cfg", FILE_ATTRIBUTE_HIDDEN);
+	wrtr.write(cfgfile);
+	lock(cfgfile);
 }
 
 void deleteFrom(String name, String file, tag& proj)
 {
-	SetFileAttributes("projects.cfg", FILE_ATTRIBUTE_NORMAL);
+	unlock(cfgfile);
 	Writer wrtr;
 	wrtr.tags = loadFile().tags;
 	int i = 0, j = 1;
@@ -258,13 +295,13 @@ void deleteFrom(String name, String file, tag& proj)
 	wrtr.tags[i].child.erase(wrtr.tags[i].child.begin()+j);
 	wrtr.tags[i].content = "";
 	proj = wrtr.tags[i];
-	wrtr.write("projects.cfg");
-	SetFileAttributes("projects.cfg", FILE_ATTRIBUTE_HIDDEN);
+	wrtr.write(cfgfile);
+	lock(cfgfile);
 }
 
 void addTo(String name, String ftype, String fname, tag& proj)
 {
-	SetFileAttributes("projects.cfg", FILE_ATTRIBUTE_NORMAL);
+	unlock(cfgfile);
 	Writer wrtr;
 	wrtr.tags = loadFile().tags;
 	int i = 0;
@@ -276,8 +313,8 @@ void addTo(String name, String ftype, String fname, tag& proj)
 	wrtr.tags[i].child.back().content = fname;
 	wrtr.tags[i].child.back().shorthand = false;
 	proj = wrtr.tags[i];
-	wrtr.write("projects.cfg");
-	SetFileAttributes("projects.cfg", FILE_ATTRIBUTE_HIDDEN);
+	wrtr.write(cfgfile);
+	lock(cfgfile);
 	if (ftype == "cpp")
 	{
 		std::string filename1 = fname + ".h";
@@ -304,9 +341,6 @@ String compile(String projname, String filename)
 	String query = "g++ -c " + projname + "\\" + filename + ".cpp -o "
 		+ projname + "\\" + filename + ".o -std=c++11 -U__STRICT_ANSI__";
 	String result = _system(query);
-	// if (result == "")
-		// return filename + ".cpp compiled successfully.";
-	// else
 		return result;
 }
 
@@ -346,7 +380,7 @@ String optimize(tag proj)
 	return result;
 }
 
-String link(tag proj)
+String _link(tag proj)
 {
 	String list;
 	String name;
@@ -387,7 +421,7 @@ String compileSingle(tag proj)
 //check uncompiled changes
 bool fileIsNewer(String file1, String file2)
 {
-	
+	#ifdef OS_WIN32
 	WIN32_FILE_ATTRIBUTE_DATA a, b;
 	if (!GetFileAttributesEx(file1.c_str(), GetFileExInfoStandard, &a))
 		return false;
@@ -396,46 +430,17 @@ bool fileIsNewer(String file1, String file2)
 	if (CompareFileTime(&a.ftLastWriteTime, &b.ftLastWriteTime) > 0)
 		return true;
 	return false;
-}
-
-bool checkfile(String path, String file, String comp, std::set<String>& s)
-{
-	if (s.count(file + comp))
+	#else
+	struct stat a;
+	struct stat b;
+	if(stat(file1.c_str(), &a))
 		return false;
-	if (fileIsNewer(path + file, comp))
+	if(stat(file2.c_str(), &b))
 		return true;
-	s.insert(file + comp);
-	
-	ifile input((path + file).c_str());
-	
-	std::vector<String> tokens{std::istream_iterator<String>{input},
-		std::istream_iterator<String>{}};
-		
-	input.close();
-	
-	for (int i = 0; i < tokens.size(); i++)
-	{
-		if (tokens[i] == "#include")
-		{
-			if (tokens[i+1][0] == '"')
-			{
-				String nextfile = tokens[i+1].substr(1, tokens[i+1].size()-2);
-				if (checkfile(path, nextfile, comp, s))
-					return true;
-			}
-		}
-	}
+	if (a.st_mtime > b.st_mtime)
+		return true;
 	return false;
-}
-
-bool fileNeedsUpdate(String path, String file, std::set<String>& s)
-{
-	return checkfile(path + "\\", file + ".cpp", path + "\\" + file + ".o", s);
-}
-
-bool fileNeedsUpdate(String path, String file, String exe, std::set<String>& s)
-{
-	return checkfile(path + "\\", file + ".cpp", exe + ".exe", s);
+	#endif
 }
 
 bool needsRelink(tag& proj)
@@ -452,29 +457,70 @@ bool needsRelink(tag& proj)
 	return false;
 }
 
+void updateDependencies(String path, String file, String& dep)
+{
+	String f = path + "\\" + file + ".cpp";
+	dep = _system("g++ -MM -std=c++11 " + f);
+}
+
+bool checkfile(String file, String comp, String dep)
+{
+	std::stringstream ss;
+	ss << dep;
+	std::vector<String> tokens{std::istream_iterator<String>{ss},
+		std::istream_iterator<String>{}};
+	for (int i = 1; i < tokens.size(); i++)
+	{
+		if (fileIsNewer(tokens[i], comp))
+			return true;
+	}
+	return false;
+}
+
+bool ofileNeedsUpdate(String path, String file, String dep)
+{
+	return checkfile(path + "\\" + file + ".cpp", path + "\\" + file + ".o", dep);
+}
+
+bool fileNeedsUpdate(String name, String file, String dep)
+{
+	return checkfile(name + "\\" + file + ".cpp", name + ".exe", dep);
+}
+
 void CheckStatus(Project* proj)
 {
-	std::set<String> s;
 	if (proj->file.size() == 1)
 	{
-		if (fileNeedsUpdate(proj->name, proj->file[0], proj->name, s))
+		if (proj->dependencies[0] == "")
+			updateDependencies(proj->name, proj->file[0], proj->dependencies[0]);
+		if (fileNeedsUpdate(proj->name, proj->file[0], proj->dependencies[0]))
 		{
 			if (proj->status[0] != '!')
 				proj->status[0] = '*';
 		}
 		else
+		{
+			if (proj->status[0] != ' ')
+				proj->dependencies[0] = "";
 			proj->status[0] = ' ';
+		}
 		return;
 	}
 	for (int i = 0; i < proj->file.size(); i++)
 	{
-		if (fileNeedsUpdate(proj->name, proj->file[i], s))
+		if (proj->dependencies[i] == "")
+			updateDependencies(proj->name, proj->file[i], proj->dependencies[i]);
+		if (ofileNeedsUpdate(proj->name, proj->file[i], proj->dependencies[i]))
 		{
 			if (proj->status[i] != '!')
 				proj->status[i] = '*';
 		}
 		else
+		{
+			if (proj->status[i] != ' ')
+				proj->dependencies[i] = "";
 			proj->status[i] = ' ';
+		}
 	}
 }
 

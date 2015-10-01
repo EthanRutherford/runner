@@ -1,10 +1,9 @@
-#include <gl/gl.h>
-#include <gl/glu.h>
-#include <gl/freeglut.h>
+#include <GL/gl.h>
+#include <GL/glu.h>
+#include <GL/freeglut.h>
 #include <deque>
 #include "menu.h"
 #include "funcs.h"
-#include "ethread.h"
 
 MenuManager mManager;
 
@@ -399,7 +398,7 @@ void Callback(String id)
 	{
 		if (!tp)
 		{
-			tp = new thread(link, cproj);
+			tp = new thread(_link, cproj);
 			running = "link";
 		}
 		else
