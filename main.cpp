@@ -206,7 +206,6 @@ void Callback(String id)
 		mManager.newTextBox("", "text", "menu3", 20, 20);
 		mManager.newButton("Set Name", "name", "menu3", 20, 60);
 		mManager.linkTextBox("menu3:text", "menu3:name");
-		
 	}
 	else if (id == "menubar:file:open")
 	{
@@ -450,13 +449,14 @@ void Callback(String id)
 	}
 	else if (id == "menu3:name")
 	{
-		project = mManager.requestText("menu3:text");
-		if (project == "")
+		String nproject = mManager.requestText("menu3:text");
+		if (nproject == "")
 			return;		//send a message?
 		mManager.deleteElement("menu3");
+		nproj.name = "project";
 		nproj.child.emplace_back();
 		nproj.child.back().name = "name";
-		nproj.child.back().content = project;
+		nproj.child.back().content = nproject;
 		nproj.child.back().shorthand = false;
 		nproj.child.emplace_back();
 		nproj.child.back().name = "main";
@@ -465,7 +465,7 @@ void Callback(String id)
 		addProject(nproj);
 		mManager.deleteElement("menu1");
 		SetMenu1();
-		Callback("menu1:" + project);
+		Callback("menu1:" + nproject);
 		Callback("menubar:edit:edit");
 	}
 	else if (id.compare(0, 5, "menu4") == 0)
@@ -504,7 +504,9 @@ void Callback(String id)
 	else if (id == "menu5:done")
 	{
 		mManager.deleteElement("menu5");
-		Callback("menu1:" + project);
+		String call = "menu1:" + project;
+		project = "";
+		Callback(call);
 	}
 	else if (id.compare(0, 5, "menu6") == 0)
 	{
@@ -532,7 +534,9 @@ void Callback(String id)
 			deleteFrom(project, id.substr(6), cproj);
 		}
 		mManager.deleteElement("menu6");
-		Callback("menu1:" + project);
+		String call = "menu1:" + project;
+		project = "";
+		Callback(call);
 		Callback("menubar:edit:edit");
 	}
 }
