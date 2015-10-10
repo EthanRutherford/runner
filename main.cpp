@@ -8,7 +8,6 @@
 MenuManager mManager;
 
 tag cproj;
-tag nproj;
 String project;
 Project proj;
 thread* tp = NULL,* sp = NULL;
@@ -377,8 +376,12 @@ void Callback(String id)
 				continue;
 			if (cproj.child[j].name == "opt")
 				continue;
-			mManager.newButton("compile " + cproj.child[j].content,
-				cproj.child[j].content, "menu2", 20, h);
+			if (cproj.child[j].name == "main")
+				mManager.newButton("compile " + cproj.child[j].content,
+					"main", "menu2", 20, h);
+			else
+				mManager.newButton("compile " + cproj.child[j].content,
+					cproj.child[j].content, "menu2", 20, h);
 			if (upd)
 				proj.emplace_back(cproj.child[j].content);
 			h += 40;
@@ -453,6 +456,7 @@ void Callback(String id)
 		if (nproject == "")
 			return;		//send a message?
 		mManager.deleteElement("menu3");
+		tag nproj;
 		nproj.name = "project";
 		nproj.child.emplace_back();
 		nproj.child.back().name = "name";
