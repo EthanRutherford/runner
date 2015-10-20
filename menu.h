@@ -47,6 +47,7 @@ struct element{
 		_Menu,
 		_MenuBar
 	};
+	virtual ~element(){}
 	virtual void draw(int yoff = 0) {}	//this is a virtual class
 	virtual _Type Type() {}				//get a type
 	String name;						//display name
