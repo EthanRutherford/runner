@@ -457,6 +457,7 @@ void Callback(String id)
 			return;		//send a message?
 		mManager.deleteElement("menu3");
 		tag nproj;
+		nproj.shorthand = false;
 		nproj.name = "project";
 		nproj.child.emplace_back();
 		nproj.child.back().name = "name";
