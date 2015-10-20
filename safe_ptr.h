@@ -13,7 +13,7 @@ class safe_ptr_i : public safe_ptr_b{
 		safe_ptr_i(T* p) { ptr = p; }
 		virtual void forget() { ptr = NULL; }
 		virtual void* get() { return ptr; }
-		virtual ~safe_ptr_i() { if (ptr != NULL) delete ptr;  }
+		virtual ~safe_ptr_i() { if (ptr != NULL) delete ptr; }
 	private:
 		T* ptr;
 };
@@ -30,7 +30,7 @@ class safe_ptr{
 			if (base != NULL)
 			{
 				base->forget();
-				delete base;
+				delete base ;
 			}
 			base = new safe_ptr_i<T>(ptr);
 		}

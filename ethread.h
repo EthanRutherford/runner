@@ -10,6 +10,7 @@
 	#include <Windows.h>
 #else
 	#include <pthread.h>
+	#include <semaphore.h>
 	#include <unistd.h>
 #endif
 #include <exception>
@@ -107,7 +108,6 @@ class thread{
 		safe_ptr r_value;
 };
 
-#ifdef OS_WIN32
 class benaphore{
 	public:
 		benaphore();
@@ -117,11 +117,16 @@ class benaphore{
 		void r_lock();
 		void r_unlock();
 	private:
+		#ifdef OS_WIN32
 		LONG counter;
 		HANDLE semaphore;
-		DWORD recursions;
 		DWORD owner;
+		#else
+		long counter;
+		sem_t semaphore;
+		pthread_t owner;
+		#endif
+		int recursions;
 };
-#endif
 
 #endif

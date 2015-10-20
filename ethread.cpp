@@ -64,7 +64,7 @@ bool thread::running()
 	return exitCode() == NOT_EXITED;
 }
 
-void sleep(int time)
+void thread::sleep(int time)
 {
 	#ifdef OS_WIN32
 	Sleep(time);
@@ -74,52 +74,82 @@ void sleep(int time)
 }
 
 //benaphore
-#ifdef OS_WIN32
+
 benaphore::benaphore()
 {
 	owner = 0;
 	recursions = 0;
 	counter = 0;
+	#ifdef OS_WIN32
 	semaphore = CreateSemaphore(NULL, 0, 1, NULL);
+	#else
+	sem_init(&semaphore, 0, 0);
+	#endif
 }
 
 benaphore::~benaphore()
 {
+	#ifdef OS_WIN32
 	CloseHandle(semaphore);
+	#else
+	sem_destroy(&semaphore);
+	#endif
 }
 
 void benaphore::lock()
 {
+	#ifdef OS_WIN32
 	if (InterlockedIncrement(&counter) > 1)
 		WaitForSingleObject(semaphore, INFINITE);
+	#else
+	if (__sync_add_and_fetch(&counter, 1) > 1)
+		sem_wait(&semaphore);
+	#endif
 }
 
 void benaphore::unlock()
 {
+	#ifdef OS_WIN32
 	if (InterlockedDecrement(&counter) > 0)
 		ReleaseSemaphore(semaphore, 1, NULL);
+	#else
+	if (__sync_sub_and_fetch(&counter, 1) > 0)
+		sem_post(&semaphore);
+	#endif
 }
 
 void benaphore::r_lock()
 {
+	#ifdef OS_WIN32
 	DWORD tid = GetCurrentThreadId();
 	if (InterlockedIncrement(&counter) > 1)
 		if (tid != owner)
 			WaitForSingleObject(semaphore, INFINITE);
+	#else
+	pthread_t tid = pthread_self();
+	if (__sync_add_and_fetch(&counter, 1) > 1)
+		if (tid != owner)
+			sem_wait(&semaphore);
+	#endif
 	owner = tid;
 	recursions++;
 }
 
 void benaphore::r_unlock()
 {
-	DWORD tid = GetCurrentThreadId();
-	//LIGHT_ASSERT(tid == owner);
 	if (--recursions == 0)
 		owner = 0;
+	#ifdef OS_WIN32
+	DWORD tid = GetCurrentThreadId();
 	if (InterlockedDecrement(&counter) > 0)
 		if (recursions == 0)
 			ReleaseSemaphore(semaphore, 1, NULL);
+	#else
+	pthread_t tid = pthread_self();
+	if (__sync_sub_and_fetch(&counter, 1) > 0)
+		if (recursions == 0)
+			sem_post(&semaphore);
+	#endif
 }
-#endif
 
 			
