@@ -459,7 +459,7 @@ bool needsRelink(tag& proj)
 
 void updateDependencies(String path, String file, String& dep)
 {
-	String f = path + "\\" + file + ".cpp";
+	String f = path + "/" + file + ".cpp";
 	dep = _system("g++ -MM -std=c++11 " + f);
 }
 
@@ -471,6 +471,8 @@ bool checkfile(String file, String comp, String dep)
 		std::istream_iterator<String>{}};
 	for (int i = 1; i < tokens.size(); i++)
 	{
+		if (tokens[i] == "\\")
+			continue;
 		if (fileIsNewer(tokens[i], comp))
 			return true;
 	}
