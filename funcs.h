@@ -40,20 +40,23 @@ String _system(String command, bool wait = true)
 	SetHandleInformation(readFromChild, HANDLE_FLAG_INHERIT, 0);
 	PROCESS_INFORMATION procInfo;
 	STARTUPINFO startupInfo;
-	ZeroMemory(&procInfo,    sizeof(procInfo));
-	ZeroMemory(&startupInfo, sizeof(startupInfo));
-	startupInfo.cb         = sizeof(startupInfo);
-	startupInfo.hStdError  = writeInChild;
-	startupInfo.hStdOutput = writeInChild;
-	startupInfo.dwFlags    = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
-	startupInfo.wShowWindow = SW_HIDE;
+	ZeroMemory(&procInfo,		sizeof(procInfo));
+	ZeroMemory(&startupInfo,	sizeof(startupInfo));
+	startupInfo.cb			= sizeof(startupInfo);
+	startupInfo.hStdError	= writeInChild;
+	startupInfo.hStdOutput	= writeInChild;
+	startupInfo.dwFlags		= STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
+	startupInfo.wShowWindow	= SW_HIDE;
 	CreateProcess(NULL, &command[0], NULL, NULL,
 		true, 0, NULL, NULL, &startupInfo, &procInfo);
 	CloseHandle(procInfo.hProcess);
 	CloseHandle(procInfo.hThread);
 	CloseHandle(writeInChild);
 	if (!wait)
+	{
+		CloseHandle(readFromChild);
 		return "";
+	}
 	String ret;
 	DWORD dwRead;
 	char chBuf[128];
@@ -78,7 +81,10 @@ String _system(String command, bool wait = true)
 				printed++;
 			}
 			if (lines > 99)
-				return ret + "...";
+			{
+				ret + "...";
+				break;
+			}
 			if (printed > 78)
 			{
 				for (int j = 0; j < printed; j++)
@@ -99,9 +105,13 @@ String _system(String command, bool wait = true)
 				lines++;
 			}
 			if (lines > 99)
-				return ret + "...";
+			{
+				ret + "...";
+				break;
+			}
 		}
 	}
+	CloseHandle(readFromChild);
 	return ret;
 	#else
 	FILE* pipe = popen(command.c_str(), "r");
