@@ -16,7 +16,7 @@
 #endif
 
 struct Project {
-	void clear() {file.clear(); status.clear();}
+	void clear() {file.clear(); status.clear(); dependencies.clear();}
 	void emplace_back(String s) {
 		file.emplace_back(s); 
 		status.emplace_back(' ');

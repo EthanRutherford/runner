@@ -363,6 +363,7 @@ void Callback(String id)
 			queue.clear();
 			names.clear();
 			proj.clear();
+			sp->rejoin();
 			Parser rdr = loadFile();
 			int i = 0;
 			for (; rdr.tags[i].child[0].content != project; i++);
